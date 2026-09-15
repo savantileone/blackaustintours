@@ -1,0 +1,1857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Black Austin Tours — Operations</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --ink:#1C1814; --ink-2:#2B241C; --ink-3:#3D3428;
+  --paper:#EDE7DC; --panel:#FBF8F2; --panel-2:#F4EFE5;
+  --line:#D9D0C0; --line-2:#C4B9A5;
+  --gold:#B07D12; --gold-lt:#E8C877; --river:#2C6A6B; --brick:#8E3B2C; --moss:#5A6B39;
+  --text:#221D17; --muted:#6E6455;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --rail:248px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{background:var(--paper);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--river)}
+h1,h2,h3,h4{font-family:var(--serif);font-weight:600;margin:0;letter-spacing:.1px}
+:focus-visible{outline:2px solid var(--river);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- shell ---------- */
+.app{display:flex;min-height:100%}
+.rail{width:var(--rail);flex:0 0 var(--rail);background:var(--ink);color:#EFE7D8;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+.brand{padding:20px 18px 16px;border-bottom:1px solid rgba(255,255,255,.1)}
+.brand .mark{font-family:var(--serif);font-size:20px;line-height:1.15;color:#fff}
+.brand .mark em{display:block;font-style:normal;color:var(--gold-lt)}
+.brand .sub{font-size:11.5px;color:#A79B86;margin-top:6px}
+.nav{padding:10px 10px;overflow-y:auto;flex:1}
+.nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;color:#D8CEBC;padding:9px 10px;border-radius:5px;cursor:pointer;font-size:14px}
+.nav button:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav button.on{background:var(--ink-3);color:#fff;box-shadow:inset 3px 0 0 var(--gold)}
+.nav .glyph{width:20px;text-align:center;font-size:15px;opacity:.85}
+.nav .count{margin-left:auto;font-size:11px;color:#9E937E;font-variant-numeric:tabular-nums}
+.who{border-top:1px solid rgba(255,255,255,.1);padding:12px}
+.who label{display:block;font-size:11px;color:#9E937E;margin-bottom:5px}
+.who select{width:100%;background:var(--ink-2);border:1px solid rgba(255,255,255,.14);color:#EFE7D8;border-radius:5px;padding:7px 8px;font-size:13px}
+.who .saved{font-size:11px;color:#7E7462;margin-top:8px}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:flex-end;gap:16px;padding:22px 28px 14px;border-bottom:1px solid var(--line);background:var(--paper);position:sticky;top:0;z-index:20}
+.topbar h1{font-size:25px}
+.topbar .blurb{color:var(--muted);font-size:13px;margin-top:3px;max-width:62ch}
+.topbar .acts{margin-left:auto;display:flex;gap:8px;align-items:center}
+.view{padding:22px 28px 60px;max-width:1220px}
+
+/* ---------- controls ---------- */
+.btn{border:1px solid var(--line-2);background:var(--panel);padding:7px 13px;border-radius:5px;cursor:pointer;font-size:13.5px}
+.btn:hover{background:#fff;border-color:var(--muted)}
+.btn.primary{background:var(--ink);border-color:var(--ink);color:#F7F1E4}
+.btn.primary:hover{background:var(--ink-3)}
+.btn.gold{background:var(--gold);border-color:var(--gold);color:#241A05;font-weight:600}
+.btn.gold:hover{filter:brightness(1.07)}
+.btn.sm{padding:3px 9px;font-size:12.5px;border-radius:4px}
+.btn.danger{color:var(--brick);border-color:#D9B6AD}
+.btn.danger:hover{background:#F7E9E5}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.field>span{font-size:12.5px;color:var(--muted)}
+input[type=text],input[type=date],input[type=time],input[type=number],input[type=url],input[type=email],input[type=tel],select,textarea{
+  border:1px solid var(--line-2);background:#fff;border-radius:5px;padding:8px 9px;width:100%}
+textarea{min-height:110px;resize:vertical;line-height:1.55}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+.toolbar .search{flex:1;min-width:180px;max-width:340px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line-2);background:transparent;border-radius:999px;padding:3px 11px;font-size:12.5px;cursor:pointer;color:var(--muted)}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#F7F1E4}
+
+/* ---------- panels ---------- */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:3px}
+.panel>header{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.panel>header h3{font-size:16px}
+.panel>header .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.panel .body{padding:16px}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(auto-fill,minmax(330px,1fr))}
+.g3{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.split{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+.meta{font-size:12.5px;color:var(--muted)}
+.empty{border:1px dashed var(--line-2);border-radius:3px;padding:26px;text-align:center;color:var(--muted)}
+.empty strong{display:block;font-family:var(--serif);font-size:16px;color:var(--text);margin-bottom:5px;font-weight:600}
+
+/* ---------- tables / rows ---------- */
+table{width:100%;border-collapse:collapse}
+th{text-align:left;font-size:12px;font-weight:600;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line-2)}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top;font-size:14px}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--panel-2)}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- tags & status ---------- */
+.tag{display:inline-block;font-size:11.5px;padding:2px 8px;border-radius:3px;background:var(--panel-2);border:1px solid var(--line);color:var(--muted);margin:2px 4px 2px 0}
+.tag.solid{background:var(--ink);border-color:var(--ink);color:#EFE7D8}
+.status{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600}
+.status:before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor}
+.s-open{color:var(--moss)} .s-limited{color:var(--gold)} .s-full{color:var(--brick)} .s-cancelled{color:var(--muted)} .s-private{color:var(--river)}
+.bar{height:6px;background:var(--panel-2);border:1px solid var(--line);border-radius:999px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--river)}
+.bar i.hot{background:var(--gold)} .bar i.max{background:var(--brick)}
+
+/* ---------- dashboard ---------- */
+.today{background:var(--ink);color:#F1E9DA;border-radius:3px;padding:20px 22px;margin-bottom:20px}
+.today .date{font-size:12.5px;color:var(--gold-lt);margin-bottom:4px}
+.today h2{color:#fff;font-size:22px}
+.today .runs{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.run{background:var(--ink-2);border:1px solid rgba(255,255,255,.12);border-radius:3px;padding:11px 14px;min-width:210px}
+.run b{display:block;font-family:var(--serif);font-size:15px;color:#fff;font-weight:600}
+.run .l{font-size:12.5px;color:#A79B86;margin-top:3px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin-bottom:20px}
+.stat{background:var(--panel);padding:14px 16px}
+.stat b{display:block;font-family:var(--serif);font-size:27px;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat span{font-size:12.5px;color:var(--muted)}
+
+/* ---------- map / builder ---------- */
+#map,#fallbackmap{height:460px;border:1px solid var(--line-2);border-radius:3px;background:var(--panel-2)}
+#fallbackmap{position:relative;overflow:hidden;cursor:crosshair}
+#fallbackmap .fg{position:absolute;inset:0;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:56px 56px;opacity:.6}
+#fallbackmap .note{position:absolute;left:10px;bottom:8px;font-size:11.5px;color:var(--muted)}
+.fpin{position:absolute;transform:translate(-50%,-100%);background:var(--ink);color:var(--gold-lt);border-radius:50% 50% 50% 2px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;rotate:-45deg}
+.fpin span{rotate:45deg}
+.stop{border:1px solid var(--line);border-left:3px solid var(--gold);background:var(--panel);border-radius:3px;padding:11px 13px;margin-bottom:9px}
+.stop .hd{display:flex;gap:9px;align-items:baseline}
+.stop .n{font-family:var(--serif);font-weight:700;color:var(--gold);min-width:18px;font-variant-numeric:tabular-nums}
+.stop .hd b{font-size:15px;font-family:var(--serif);font-weight:600}
+.stop .hd .sp{margin-left:auto;display:flex;gap:4px}
+.stop details{margin-top:8px}
+.stop summary{cursor:pointer;font-size:12.5px;color:var(--river)}
+.leaflet-container{font:inherit}
+.numpin{background:var(--ink);color:var(--gold-lt);border:2px solid var(--gold);border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px}
+
+/* ---------- media ---------- */
+.media{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.mcard{border:1px solid var(--line);background:var(--panel);border-radius:3px;overflow:hidden;display:flex;flex-direction:column}
+.mcard .th{height:124px;background:var(--panel-2) center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--line-2);border-bottom:1px solid var(--line)}
+.mcard .cap{padding:9px 11px;font-size:13px;flex:1}
+.mcard .cap .meta{margin-top:3px}
+.mcard .row{display:flex;gap:6px;padding:0 11px 10px}
+.drop{border:1px dashed var(--line-2);border-radius:3px;padding:18px;text-align:center;color:var(--muted);font-size:13px;margin-bottom:16px}
+.drop.over{background:#fff;border-color:var(--river);color:var(--river)}
+
+/* ---------- people ---------- */
+.person{display:flex;gap:13px;padding:14px;border:1px solid var(--line);background:var(--panel);border-radius:3px}
+.avatar{width:46px;height:46px;flex:0 0 46px;border-radius:50%;background:var(--ink);color:var(--gold-lt);display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:17px;font-weight:600;background-size:cover;background-position:center}
+.person h4{font-size:16px}
+.person .role{font-size:12.5px;color:var(--gold);font-weight:600}
+.person .lines{font-size:13px;margin-top:7px}
+.person .lines div{margin-bottom:2px}
+
+/* ---------- notes ---------- */
+.actionitem{display:flex;gap:9px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--line)}
+.actionitem:last-child{border-bottom:0}
+.actionitem input{margin-top:4px;width:auto;flex:0 0 auto}
+.actionitem.done label{text-decoration:line-through;color:var(--muted)}
+.prose{white-space:pre-wrap;line-height:1.62;max-width:74ch}
+
+/* ---------- modal ---------- */
+.scrim{position:fixed;inset:0;background:rgba(24,20,16,.55);display:flex;align-items:flex-start;justify-content:center;padding:36px 16px;overflow-y:auto;z-index:100}
+.modal{background:var(--panel);border-radius:4px;width:min(640px,100%);box-shadow:0 18px 50px rgba(0,0,0,.3)}
+.modal.wide{width:min(880px,100%)}
+.modal header{display:flex;align-items:center;padding:15px 20px;border-bottom:1px solid var(--line)}
+.modal header h3{font-size:18px}
+.modal header .x{margin-left:auto;background:none;border:0;font-size:20px;cursor:pointer;color:var(--muted);line-height:1}
+.modal .body{padding:20px;max-height:66vh;overflow-y:auto}
+.modal footer{display:flex;gap:9px;justify-content:flex-end;padding:13px 20px;border-top:1px solid var(--line)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.picklist{border:1px solid var(--line-2);background:#fff;border-radius:5px;max-height:170px;overflow-y:auto;padding:6px}
+.picklist label{display:flex;gap:8px;align-items:flex-start;padding:4px 5px;font-size:13.5px;border-radius:3px;cursor:pointer}
+.picklist label:hover{background:var(--panel-2)}
+.picklist input{width:auto;margin-top:3px}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:#F3ECDE;padding:10px 18px;border-radius:4px;font-size:13.5px;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+
+@media (max-width:900px){
+  .app{flex-direction:column}
+  .rail{width:100%;flex:none;height:auto;position:static}
+  .nav{display:grid;grid-template-columns:repeat(2,1fr);gap:2px}
+  .split{grid-template-columns:1fr}
+  .view,.topbar{padding-left:16px;padding-right:16px}
+  .topbar{flex-wrap:wrap}
+}
+@media print{
+  .rail,.topbar .acts,.btn,.toolbar{display:none!important}
+  body{background:#fff}
+  .panel{border:0}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="brand">
+      <div class="mark">Black Austin Tours<em>Operations</em></div>
+      <div class="sub">Powerful stories. Passionate guides.</div>
+    </div>
+    <nav class="nav" id="nav"></nav>
+    <div class="who">
+      <label for="whoami">Working as</label>
+      <select id="whoami"></select>
+      <div class="saved" id="savedstate">Loading…</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1 id="vtitle">Today</h1>
+        <div class="blurb" id="vblurb"></div>
+      </div>
+      <div class="acts" id="vacts"></div>
+    </div>
+    <div class="view" id="view"></div>
+  </main>
+</div>
+<div id="modalroot"></div>
+<script type="text/plain" id="gscode">/**
+ * Black Austin Tours — Operations backend
+ * Paste this into Apps Script on a Google Sheet, deploy it as a web app,
+ * and paste the web app URL into the Workspace tab of the operations app.
+ *
+ * Every collection gets its own tab. You can edit cells in the sheet by hand
+ * and the app will pick the changes up on its next pull.
+ */
+
+// Optional. Set a word here and paste the same word into the app to keep
+// strangers with the link out. Leave empty for no check.
+var SHARED_TOKEN = '';
+
+var TABS = {
+  tours:    ['id','name','type','duration','distance','capacity','price','meet','blurb'],
+  events:   ['id','tourId','date','time','guide','capacity','booked','status','note'],
+  research: ['id','title','type','author','year','tags','source','body','by','added'],
+  routes:   ['id','name','tourId','notes'],
+  stops:    ['id','routeId','position','name','lat','lng','mins','script','research'],
+  notes:    ['id','title','date','attendees','body','by'],
+  actions:  ['id','noteId','text','who','due','done'],
+  media:    ['id','title','kind','url','date','tags','credit','by','thumb'],
+  people:   ['id','name','role','email','phone','languages','tours','photo','bio','notes'],
+  contacts: ['id','name','org','kind','email','phone','address','tags','notes']
+};
+var LISTS  = {research:['tags'], stops:['research'], notes:['attendees'], media:['tags'], contacts:['tags']};
+var NUMS   = {tours:['capacity'], events:['capacity','booked'], stops:['position','lat','lng','mins']};
+var DATES  = {events:['date'], research:['added'], notes:['date'], actions:['due'], media:['date']};
+var BOOLS  = {actions:['done']};
+var SEP = ' | ';
+
+/* ---------------- entry points ---------------- */
+
+function doGet(e) {
+  var action = (e && e.parameter && e.parameter.action) || 'ping';
+  return respond(handle({action: action, token: (e && e.parameter && e.parameter.token) || ''}));
+}
+
+function doPost(e) {
+  var body = {};
+  try { body = JSON.parse(e.postData.contents); } catch (err) { body = {}; }
+  return respond(handle(body));
+}
+
+function handle(req) {
+  if (SHARED_TOKEN && String(req.token || '') !== SHARED_TOKEN) {
+    return {error: 'That access word does not match the one set in the script.'};
+  }
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+  } catch (err) {
+    return {error: 'The sheet is busy. Try again in a moment.'};
+  }
+  try {
+    if (req.action === 'ping') return meta();
+    if (req.action === 'load') { var m = meta(); m.data = readAll(); return m; }
+    if (req.action === 'save') return saveAll(req);
+    return {error: 'Unknown action: ' + req.action};
+  } catch (err) {
+    return {error: String(err)};
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function respond(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+/* ---------------- meta ---------------- */
+
+function ss() { return SpreadsheetApp.getActiveSpreadsheet(); }
+
+function metaSheet() {
+  var sh = ss().getSheetByName('Meta');
+  if (!sh) {
+    sh = ss().insertSheet('Meta');
+    sh.getRange(1, 1, 4, 2).setValues([['key', 'value'], ['rev', '0'], ['updated', ''], ['by', '']]);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+function meta() {
+  var vals = metaSheet().getDataRange().getValues();
+  var out = {ok: true, rev: 0, updated: '', by: ''};
+  vals.forEach(function (r) {
+    if (r[0] === 'rev') out.rev = Number(r[1]) || 0;
+    if (r[0] === 'updated') out.updated = String(r[1] || '');
+    if (r[0] === 'by') out.by = String(r[1] || '');
+  });
+  return out;
+}
+
+function setMeta(rev, by) {
+  var sh = metaSheet();
+  var vals = sh.getDataRange().getValues();
+  var stamp = new Date().toISOString();
+  for (var i = 0; i < vals.length; i++) {
+    if (vals[i][0] === 'rev') sh.getRange(i + 1, 2).setValue(String(rev));
+    if (vals[i][0] === 'updated') sh.getRange(i + 1, 2).setValue(stamp);
+    if (vals[i][0] === 'by') sh.getRange(i + 1, 2).setValue(String(by || ''));
+  }
+  return {ok: true, rev: rev, updated: stamp, by: by || ''};
+}
+
+/* ---------------- read ---------------- */
+
+function readTab(name) {
+  var headers = TABS[name];
+  var sh = ss().getSheetByName(tabTitle(name));
+  if (!sh) return [];
+  var vals = sh.getDataRange().getValues();
+  if (vals.length < 2) return [];
+  var head = vals[0].map(function (h) { return String(h).trim(); });
+  var rows = [];
+  for (var r = 1; r < vals.length; r++) {
+    if (String(vals[r][0]).trim() === '') continue;
+    var o = {};
+    head.forEach(function (h, i) { if (headers.indexOf(h) > -1) o[h] = vals[r][i]; });
+    headers.forEach(function (h) { if (!(h in o)) o[h] = ''; });
+    rows.push(coerce(name, o));
+  }
+  return rows;
+}
+
+function coerce(name, o) {
+  (LISTS[name] || []).forEach(function (f) {
+    o[f] = String(o[f] || '').split(SEP).map(function (s) { return s.trim(); }).filter(String);
+  });
+  (NUMS[name] || []).forEach(function (f) { o[f] = Number(o[f]) || 0; });
+  (BOOLS[name] || []).forEach(function (f) {
+    var v = String(o[f]).toLowerCase();
+    o[f] = (v === 'true' || v === 'yes' || v === 'done' || v === '1');
+  });
+  (DATES[name] || []).forEach(function (f) { o[f] = asISO(o[f]); });
+  Object.keys(o).forEach(function (k) { if (typeof o[k] === 'object' && o[k] instanceof Date) o[k] = asISO(o[k]); });
+  Object.keys(o).forEach(function (k) { if (o[k] === null || o[k] === undefined) o[k] = ''; });
+  return o;
+}
+
+function asISO(v) {
+  if (!v) return '';
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  }
+  return String(v).trim();
+}
+
+function readAll() {
+  var db = {
+    tours: readTab('tours'),
+    events: readTab('events'),
+    research: readTab('research'),
+    routes: readTab('routes'),
+    notes: readTab('notes'),
+    media: readTab('media'),
+    people: readTab('people'),
+    contacts: readTab('contacts'),
+    meta: {source: 'google-sheets'}
+  };
+  var stops = readTab('stops').sort(function (a, b) { return a.position - b.position; });
+  db.routes.forEach(function (r) {
+    r.stops = stops.filter(function (s) { return s.routeId === r.id; })
+      .map(function (s) {
+        return {id: s.id, name: s.name, lat: s.lat, lng: s.lng, mins: s.mins, script: s.script, research: s.research};
+      });
+  });
+  var actions = readTab('actions');
+  db.notes.forEach(function (n) {
+    n.actions = actions.filter(function (a) { return a.noteId === n.id; })
+      .map(function (a) { return {id: a.id, text: a.text, who: a.who, due: a.due, done: a.done}; });
+  });
+  return db;
+}
+
+/* ---------------- write ---------------- */
+
+function tabTitle(name) { return name.charAt(0).toUpperCase() + name.slice(1); }
+
+function writeTab(name, rows) {
+  var headers = TABS[name];
+  var sh = ss().getSheetByName(tabTitle(name));
+  if (!sh) sh = ss().insertSheet(tabTitle(name));
+  sh.clear();
+  var data = [headers];
+  rows.forEach(function (o) {
+    data.push(headers.map(function (h) {
+      var v = o[h];
+      if (Array.isArray(v)) return v.join(SEP);
+      if (v === true) return 'TRUE';
+      if (v === false) return 'FALSE';
+      if (v === null || v === undefined) return '';
+      return String(v);
+    }));
+  });
+  var range = sh.getRange(1, 1, data.length, headers.length);
+  range.setNumberFormat('@');           // keep dates and ids as plain text
+  range.setValues(data);
+  sh.setFrozenRows(1);
+  sh.getRange(1, 1, 1, headers.length).setFontWeight('bold').setBackground('#1C1814').setFontColor('#EFE7D8');
+  sh.autoResizeColumns(1, Math.min(headers.length, 6));
+}
+
+function saveAll(req) {
+  var current = meta();
+  var incoming = Number(req.rev);
+  if (current.rev > 0 && incoming !== current.rev) {
+    var out = meta();
+    out.ok = false;
+    out.conflict = true;
+    out.data = readAll();
+    return out;
+  }
+  var db = req.data || {};
+  writeTab('tours', db.tours || []);
+  writeTab('events', db.events || []);
+  writeTab('research', db.research || []);
+  writeTab('routes', (db.routes || []).map(function (r) {
+    return {id: r.id, name: r.name, tourId: r.tourId, notes: r.notes};
+  }));
+  var stops = [];
+  (db.routes || []).forEach(function (r) {
+    (r.stops || []).forEach(function (s, i) {
+      stops.push({id: s.id, routeId: r.id, position: i + 1, name: s.name, lat: s.lat,
+                  lng: s.lng, mins: s.mins, script: s.script, research: s.research});
+    });
+  });
+  writeTab('stops', stops);
+  writeTab('notes', (db.notes || []).map(function (n) {
+    return {id: n.id, title: n.title, date: n.date, attendees: n.attendees, body: n.body, by: n.by};
+  }));
+  var actions = [];
+  (db.notes || []).forEach(function (n) {
+    (n.actions || []).forEach(function (a) {
+      actions.push({id: a.id, noteId: n.id, text: a.text, who: a.who, due: a.due, done: a.done});
+    });
+  });
+  writeTab('actions', actions);
+  writeTab('media', (db.media || []).map(function (m) {
+    var t = String(m.thumb || '');
+    return {id: m.id, title: m.title, kind: m.kind, url: m.url, date: m.date,
+            tags: m.tags, credit: m.credit, by: m.by, thumb: t.length > 45000 ? '' : t};
+  }));
+  writeTab('people', db.people || []);
+  writeTab('contacts', db.contacts || []);
+  return setMeta(current.rev + 1, req.by);
+}
+
+/* ---------------- handy from the Sheets menu ---------------- */
+
+function onOpen() {
+  SpreadsheetApp.getUi().createMenu('Black Austin Tours')
+    .addItem('Reset revision counter', 'resetRev')
+    .addToUi();
+}
+
+function resetRev() {
+  setMeta(0, 'manual reset');
+  SpreadsheetApp.getUi().alert('Revision reset. The next save from the app will be accepted.');
+}
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* ============================================================
+   Black Austin Tours — internal operations app
+   Single file. No build step. Data persists per browser/session
+   via the artifact storage API when available, localStorage when
+   run from a downloaded file, memory as a last resort.
+   ============================================================ */
+
+/* ---------------- storage adapter ---------------- */
+const Store = (() => {
+  const mem = {};
+  const has = typeof window !== 'undefined' && window.storage && typeof window.storage.get === 'function';
+  let local = false;
+  if(!has){
+    try{ localStorage.setItem('bat:probe','1'); localStorage.removeItem('bat:probe'); local = true; }
+    catch(e){ local = false; }
+  }
+  let mode = has ? 'the shared workspace' : local ? 'this browser' : 'this session only';
+  async function get(k){
+    try{
+      if(has){ const r = await window.storage.get(k, true); return r && r.value ? JSON.parse(r.value) : null; }
+      if(local){ const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; }
+      return mem[k] ?? null;
+    }catch(e){ return mem[k] ?? null; }
+  }
+  async function set(k, v){
+    const s = JSON.stringify(v);
+    mem[k] = v;
+    try{
+      if(has){ await window.storage.set(k, s, true); return true; }
+      if(local){ localStorage.setItem(k, s); return true; }
+    }catch(e){ return false; }
+    return true;
+  }
+  return { get, set, label: () => mode };
+})();
+
+const KEY = 'bat:v1:data';
+let DB = null;
+let ME = null;
+let saveTimer = null;
+
+function save(msg){
+  clearTimeout(saveTimer);
+  setSync('syncing', 'Saving…');
+  saveTimer = setTimeout(async () => {
+    const ok = await Store.set(KEY, DB);
+    if(CFG.on) scheduleCloudPush();
+    else setSync(ok ? 'local' : 'error', ok ? 'Saved to ' + Store.label() : 'Not saved — export a backup');
+    if(msg) toast(msg);
+  }, 180);
+}
+
+/* ---------------- small helpers ---------------- */
+const $ = s => document.querySelector(s);
+const uid = p => p + '_' + Math.random().toString(36).slice(2,9);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const byId = (arr, id) => arr.find(x => x.id === id);
+const todayISO = () => new Date().toISOString().slice(0,10);
+
+function fmtDate(iso, opts){
+  if(!iso) return '';
+  const d = new Date(iso + 'T12:00:00');
+  return d.toLocaleDateString('en-US', opts || {weekday:'short', month:'short', day:'numeric'});
+}
+function fmtTime(t){
+  if(!t) return '';
+  const [h,m] = t.split(':').map(Number);
+  const ap = h >= 12 ? 'pm' : 'am';
+  return ((h % 12) || 12) + (m ? ':' + String(m).padStart(2,'0') : '') + ap;
+}
+function daysUntil(iso){
+  const a = new Date(todayISO()+'T00:00:00'), b = new Date(iso+'T00:00:00');
+  return Math.round((b - a) / 86400000);
+}
+function relDay(iso){
+  const n = daysUntil(iso);
+  if(n === 0) return 'Today';
+  if(n === 1) return 'Tomorrow';
+  if(n < 0) return Math.abs(n) + ' days ago';
+  if(n < 7) return 'In ' + n + ' days';
+  return fmtDate(iso);
+}
+function toast(msg){
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
+}
+function jsq(v){ return String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+function tagList(tags){ return (tags||[]).map(t => `<span class="tag">${esc(t)}</span>`).join(''); }
+function initials(name){ return (name||'?').split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase(); }
+function personName(id){ const p = byId(DB.people, id); return p ? p.name : 'Unassigned'; }
+function sortByDate(a,b){ return (a.date + (a.time||'')).localeCompare(b.date + (b.time||'')); }
+
+function seatStatus(ev){
+  if(ev.status === 'cancelled') return {k:'cancelled', label:'Cancelled'};
+  if(ev.status === 'private') return {k:'private', label:'Private booking'};
+  const left = (ev.capacity||0) - (ev.booked||0);
+  if(left <= 0) return {k:'full', label:'Sold out'};
+  if(left <= Math.max(2, Math.round((ev.capacity||1)*0.25))) return {k:'limited', label:left + ' seats left'};
+  return {k:'open', label:left + ' seats left'};
+}
+function seatBar(ev){
+  const pct = ev.capacity ? Math.min(100, Math.round((ev.booked/ev.capacity)*100)) : 0;
+  const cls = pct >= 100 ? 'max' : pct >= 75 ? 'hot' : '';
+  return `<div class="bar"><i class="${cls}" style="width:${pct}%"></i></div>`;
+}
+
+/* ---------------- seed data ---------------- */
+function seed(){
+  const d = n => { const x = new Date(); x.setDate(x.getDate()+n); return x.toISOString().slice(0,10); };
+  const people = [
+    {id:'p_jw', name:'Javier Wallace', role:'Founder & lead guide', email:'info@blackaustintours.com', phone:'', languages:'English, Spanish', tours:'All tours', bio:'Native Austinite, PhD from UT Austin. Family has been in the Austin area since the 1820s. Leads Roll Colorado Roll and corporate programs.', notes:'Primary contact for press and corporate bookings.', photo:''},
+    {id:'p_g1', name:'Guide — add name', role:'Tour guide', email:'', phone:'', languages:'English', tours:'Downtown, East Austin', bio:'', notes:'', photo:''},
+    {id:'p_r1', name:'Researcher — add name', role:'Research & archives', email:'', phone:'', languages:'English', tours:'', bio:'', notes:'', photo:''}
+  ];
+  const tours = [
+    {id:'t_dt', name:"Downtown's Black History Walk", type:'Walking tour', duration:'2 hrs', distance:'1 mile', capacity:15, price:'', meet:'Downtown Austin', blurb:'Black presence in the heart of Austin since 1839 and before — enslavement, routes to freedom in Mexico, and the Black businesses and institutions that once flourished downtown.'},
+    {id:'t_ea', name:'East Austin Black History Walk', type:'Walking tour', duration:'2 hrs', distance:'1 mile', capacity:15, price:'', meet:'East 11th Street', blurb:'From the 1928 Master Plan and the creation of the "Negro District" through the present, with stops at key sites and Black-owned businesses.'},
+    {id:'t_rc', name:'Roll Colorado Roll', type:'Paddling tour (seasonal)', duration:'2.5 hrs', distance:'', capacity:12, price:'', meet:'Rowing Dock', blurb:'The Colorado River as transport for enslavement, route to freedom, site of baptisms and recreation, and the 1960s swim-ins at Barton Springs.'},
+    {id:'t_cc', name:'Taste & Sounds of the Chitlin Circuit', type:'Food & music tour', duration:'3 hrs', distance:'', capacity:14, price:'', meet:'East Austin', blurb:"East Austin's Black music legacy and Black foodways, with stops including the George Washington Carver Museum and historically Black churches. Adults only."},
+    {id:'t_pp', name:'Pease Park & Shoal Creek Walk', type:'Walking tour', duration:'1.5 hrs', distance:'1 mile', capacity:15, price:'', meet:'Kingsbury Commons', blurb:'In development. Shoal Creek as a boundary, the 1865 encampment at Custer\u2019s Meadow, and the freedom colonies that grew up on either side of the park.'},
+    {id:'t_k12', name:'Educational K–12 Tour', type:'Group / school', duration:'Varies', distance:'', capacity:40, price:'', meet:'By arrangement', blurb:'Designed for schools, youth groups, and non-profits serving K–12 audiences.'}
+  ];
+  const events = [
+    {id:uid('e'), tourId:'t_ea', date:d(2), time:'10:00', guide:'p_jw', capacity:15, booked:11, status:'open', note:'Two Spanish-speaking guests.'},
+    {id:uid('e'), tourId:'t_dt', date:d(4), time:'09:30', guide:'p_g1', capacity:15, booked:15, status:'open', note:''},
+    {id:uid('e'), tourId:'t_cc', date:d(6), time:'17:30', guide:'p_jw', capacity:14, booked:6, status:'open', note:'Confirm brunch count with the restaurant 48 hrs out.'},
+    {id:uid('e'), tourId:'t_k12', date:d(11), time:'10:00', guide:'p_g1', capacity:40, booked:38, status:'private', note:'AISD 8th grade. Two buses, needs bathroom stop.'},
+    {id:uid('e'), tourId:'t_rc', date:d(16), time:'08:00', guide:'p_jw', capacity:12, booked:3, status:'open', note:'Check river flow the week of.'}
+  ];
+  const research = [
+    {id:uid('r'), title:'1928 Austin Master Plan and the "Negro District"', type:'Primary source', author:'City of Austin', year:'1928', tags:['East Austin','segregation','policy'], source:'', body:'The city plan recommended concentrating Black residents east of East Avenue by placing schools, parks, and services for Black Austinites only in that district. Use this as the anchor document for the East Austin walk. Pull the exact wording before quoting it on tour.', by:'p_jw', added:todayISO()},
+    {id:uid('r'), title:'Swim-ins at Barton Springs, 1960s', type:'Field note', author:'', year:'', tags:['Colorado River','protest','recreation'], source:'', body:'Black youth challenged the city policy that barred them from Barton Springs. Good anchor story for the paddling tour. Needs: names of participants, dates, newspaper coverage.', by:'p_jw', added:todayISO()},
+    {id:uid('r'), title:'Chitlin Circuit venues in East Austin', type:'Research memo', author:'', year:'', tags:['music','East Austin','Chitlin Circuit'], source:'', body:'Running list of venues, dates of operation, and who played. Cross-reference with oral histories before adding a stop to the food and music tour.', by:'p_jw', added:todayISO()}
+  ];
+  const routes = starterRoutes();
+  const notes = [{
+    id:uid('n'), title:'Weekly guide huddle', date:todayISO(), attendees:['p_jw','p_g1'],
+    body:'Walked through the week ahead and the K–12 booking.\n\nDecisions:\n- Cap school groups at 40 with two guides.\n- Research team adds sources to stops before the route is marked ready.',
+    actions:[{id:uid('a'), text:'Confirm restaurant headcount for the food tour', who:'p_jw', due:'', done:false},
+             {id:uid('a'), text:'Add citations to the East Austin route stops', who:'p_r1', due:'', done:false}],
+    by:'p_jw'
+  }];
+  const media = [];
+  const contacts = [
+    {id:uid('c'), name:'Rowing Dock', org:'Rowing Dock', kind:'Partner', email:'', phone:'', address:'Austin, TX', notes:'Paddling partner for Roll Colorado Roll.', tags:['river','partner']},
+    {id:uid('c'), name:'George Washington Carver Museum', org:'City of Austin', kind:'Venue', email:'', phone:'', address:'1165 Angelina St, Austin, TX', notes:'Stop on multiple tours. Confirm hours for large groups.', tags:['venue','East Austin']}
+  ];
+  return {tours, events, research, routes, notes, media, people, contacts, meta:{created:todayISO()}};
+}
+
+
+/* ---------------- starter routes ----------------
+   Pins are placed at well-known addresses and are approximate. Drag each one
+   to the exact spot you stand. Stop text is scaffolding to replace with your
+   own script once the research is attached. */
+function starterRoutes(){
+  const S = (name, lat, lng, mins, script) => ({id:uid('s'), name, lat, lng, mins, script, research:[]});
+  return [
+    {id:'rt_dt', name:"Downtown's Black History Walk", tourId:'t_dt',
+     notes:'About a mile, roughly two hours with stops. Loop starts and ends within a few blocks of Republic Square.',
+     stops:[
+       S('Republic Square', 30.2669, -97.7472, 10, 'Open here. The 1839 city plan, who laid it out, and who was living and working in the first Austin.'),
+       S('Congress Avenue at 6th Street', 30.2683, -97.7430, 15, 'The commercial spine. Black-owned businesses and Black workers downtown, and what happened to that presence.'),
+       S('Waller Creek at 6th', 30.2670, -97.7372, 10, 'Water, enslavement, and routes toward Mexico. Sets up the connection to the river tour.'),
+       S('Texas Capitol grounds', 30.2747, -97.7404, 20, 'Whose labor built the state\u2019s buildings, and what the monuments on these grounds say and leave out.'),
+       S('Wooldridge Square', 30.2731, -97.7449, 15, 'Public space, courts, and who was allowed to use them.'),
+       S('Austin History Center', 30.2723, -97.7464, 10, 'Close here. Point guests at the archive so they can keep going on their own.')
+     ]},
+    {id:'rt_ea', name:'East Austin Black History Walk', tourId:'t_ea',
+     notes:'One mile, about two hours. Ends near a Black-owned business so the group can spend money in the neighborhood.',
+     stops:[
+       S('Victory Grill', 30.2692, -97.7297, 15, 'Open on East 11th. The Chitlin Circuit, who played here, and what the street looked like when this room was full.'),
+       S('Wesley United Methodist Church', 30.2687, -97.7281, 10, 'Churches as the institutions that outlasted the businesses.'),
+       S('George Washington Carver Museum', 30.2699, -97.7266, 15, 'The 1928 Master Plan and the making of the \u201cNegro District\u201d \u2014 policy, not accident.'),
+       S('East 11th at Navasota', 30.2690, -97.7244, 15, 'Stand in the middle of the change. What was here, what replaced it, and who left.'),
+       S('Huston-Tillotson University', 30.2637, -97.7212, 20, 'Close at the oldest institution of higher education in Austin and what it has meant to this community.')
+     ]},
+    {id:'rt_rc', name:'Roll Colorado Roll', tourId:'t_rc',
+     notes:'Seasonal, on the water, launched from Rowing Dock. Check river flow and the forecast the week of. Confirm the turnaround with Rowing Dock \u2014 the full run to Congress and back is long for the time slot.',
+     stops:[
+       S('Rowing Dock launch', 30.2657, -97.7712, 15, 'Safety talk, then frame the day: the Colorado as a route into slavery and a route out of it.'),
+       S('Barton Creek confluence at Lou Neff Point', 30.2660, -97.7677, 10, 'Where the creek meets the river. Orient the group before heading toward the springs.'),
+       S('Barton Springs shoreline', 30.2641, -97.7707, 20, 'The swim-ins of the 1960s. Black youth challenging a city that barred them from its most coveted green space.'),
+       S('Shoal Creek mouth at Auditorium Shores', 30.2664, -97.7545, 15, 'Baptisms, recreation, and the shoreline as gathering place.'),
+       S('Turnaround below the Congress Avenue bridge', 30.2619, -97.7450, 15, 'Close on the water looking back at downtown. Tie the river to what guests see on the walking tours.')
+     ]},
+    {id:'rt_pp', name:'Pease Park & Shoal Creek', tourId:'t_pp',
+     notes:'In development. About a mile along Shoal Creek, mostly shaded, with restrooms at Kingsbury Commons. Clarksville sits southwest of the park and works as a separate leg rather than a walking extension.',
+     stops:[
+       S('Kingsbury Commons', 30.2818, -97.7546, 10, 'Open at the south end. Who this park was named for, and who was welcome in it over the years.'),
+       S('Shoal Creek crossing', 30.2838, -97.7556, 15, 'The creek as a boundary line between neighborhoods, and what that boundary did.'),
+       S('Custer\u2019s Meadow', 30.2858, -97.7568, 20, 'The 1865 federal encampment here and what emancipation actually looked like in Texas that year. Verify dates and unit details against your sources before this goes out.'),
+       S('Wheatville edge at 24th and San Gabriel', 30.2868, -97.7476, 20, 'The freedom colony that grew on this side of the creek after emancipation \u2014 who founded it, what was here, and what is left to see.')
+     ]}
+  ];
+}
+
+/* ---------------- modal + generic form ---------------- */
+function closeModal(){ $('#modalroot').innerHTML = ''; }
+function openModal(title, bodyHTML, footerHTML, wide){
+  $('#modalroot').innerHTML = `<div class="scrim" data-scrim>
+    <div class="modal${wide ? ' wide' : ''}" role="dialog" aria-modal="true">
+      <header><h3>${esc(title)}</h3><button class="x" data-close aria-label="Close">&times;</button></header>
+      <div class="body">${bodyHTML}</div>
+      <footer>${footerHTML || '<button class="btn" data-close>Close</button>'}</footer>
+    </div></div>`;
+}
+
+/* fields: {k, label, type, options, hint, rows, half} */
+function formHTML(fields, v){
+  return fields.map(f => {
+    const val = v[f.k] ?? '';
+    const id = 'f_' + f.k;
+    let input;
+    if(f.type === 'textarea') input = `<textarea id="${id}" ${f.rows?`style="min-height:${f.rows*22}px"`:''}>${esc(val)}</textarea>`;
+    else if(f.type === 'select') input = `<select id="${id}">${f.options.map(o => `<option value="${esc(o.v)}"${String(o.v)===String(val)?' selected':''}>${esc(o.t)}</option>`).join('')}</select>`;
+    else if(f.type === 'picklist'){
+      const cur = Array.isArray(val) ? val : [];
+      input = `<div class="picklist" id="${id}">${f.options.length ? f.options.map(o =>
+        `<label><input type="checkbox" value="${esc(o.v)}"${cur.includes(o.v)?' checked':''}><span>${esc(o.t)}</span></label>`).join('')
+        : '<div class="meta" style="padding:6px">Nothing to choose yet.</div>'}</div>`;
+    }
+    else if(f.type === 'tags') input = `<input type="text" id="${id}" value="${esc((val||[]).join(', '))}" placeholder="comma, separated">`;
+    else input = `<input type="${f.type || 'text'}" id="${id}" value="${esc(val)}" ${f.step?`step="${f.step}"`:''} ${f.placeholder?`placeholder="${esc(f.placeholder)}"`:''}>`;
+    return `<label class="field"${f.half?' style="display:inline-flex;width:100%"':''}><span>${esc(f.label)}</span>${input}${f.hint?`<span class="meta">${esc(f.hint)}</span>`:''}</label>`;
+  }).join('');
+}
+function readForm(fields){
+  const out = {};
+  fields.forEach(f => {
+    const el = document.getElementById('f_' + f.k);
+    if(!el) return;
+    if(f.type === 'picklist') out[f.k] = [...el.querySelectorAll('input:checked')].map(i => i.value);
+    else if(f.type === 'tags') out[f.k] = el.value.split(',').map(s => s.trim()).filter(Boolean);
+    else if(f.type === 'number') out[f.k] = Number(el.value || 0);
+    else out[f.k] = el.value;
+  });
+  return out;
+}
+function openForm({title, fields, values = {}, onSave, wide, extra = ''}){
+  openModal(title, `<div class="two-wrap">${formHTML(fields, values)}</div>${extra}`,
+    `<button class="btn" data-close>Cancel</button><button class="btn primary" id="formsave">Save</button>`, wide);
+  $('#formsave').onclick = () => {
+    const data = readForm(fields);
+    const err = onSave(data);
+    if(!err) closeModal();
+    else if(err !== 'skip') toast(err);
+  };
+  const first = $('.modal input, .modal textarea, .modal select');
+  if(first) first.focus();
+}
+function confirmDelete(what, fn){
+  openModal('Delete ' + what + '?', `<p>This removes it for everyone using this workspace. It can't be undone unless you have a backup export.</p>`,
+    `<button class="btn" data-close>Keep it</button><button class="btn danger" id="okdel">Delete</button>`);
+  $('#okdel').onclick = () => { fn(); closeModal(); };
+}
+
+
+/* ---------------- Google Sheets sync ---------------- */
+const CFGKEY = 'bat:v1:config';
+let CFG = {endpoint:'', token:'', sheetUrl:'', on:false};
+let REV = 0, SYNC = {state:'local', msg:'', by:'', at:''};
+let pushTimer = null, pollTimer = null;
+
+const Cloud = {
+  async call(payload, endpoint){
+    const url = endpoint || CFG.endpoint;
+    if(!url) throw new Error('No web app URL set.');
+    const res = await fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},  // keeps it a simple request, no preflight
+      body: JSON.stringify(payload), redirect:'follow'
+    });
+    const txt = await res.text();
+    let j;
+    try{ j = JSON.parse(txt); }
+    catch(e){ throw new Error('The URL did not return data. Check that the deployment runs as you and is open to anyone with the link.'); }
+    if(j.error) throw new Error(j.error);
+    return j;
+  },
+  ping(endpoint, token){ return this.call({action:'ping', token: token ?? CFG.token}, endpoint); },
+  load(){ return this.call({action:'load', token:CFG.token}); },
+  push(){ return this.call({action:'save', token:CFG.token, rev:REV, by:personName(ME), data:DB}); }
+};
+
+function setSync(state, msg){ SYNC.state = state; SYNC.msg = msg || ''; renderSync(); }
+function renderSync(){
+  const el = $('#savedstate'); if(!el) return;
+  const map = {local:'●', syncing:'◍', ok:'●', error:'▲'};
+  const color = {local:'#9E937E', syncing:'#E8C877', ok:'#8FAE5D', error:'#D98E7E'}[SYNC.state];
+  el.innerHTML = `<span style="color:${color}">${map[SYNC.state]}</span> ${esc(SYNC.msg)}` +
+    (CFG.on ? ` <button class="btn sm" style="margin-left:6px" onclick="cloudPull()">Refresh</button>` : '');
+}
+async function loadConfig(){
+  const c = await Store.get(CFGKEY);
+  if(c) CFG = Object.assign(CFG, c);
+}
+function saveConfig(){ Store.set(CFGKEY, CFG); }
+
+function scheduleCloudPush(){
+  if(!CFG.on) return;
+  clearTimeout(pushTimer);
+  setSync('syncing', 'Saving to the sheet\u2026');
+  pushTimer = setTimeout(cloudPush, 900);
+}
+async function cloudPush(){
+  if(!CFG.on) return;
+  try{
+    const r = await Cloud.push();
+    if(r.conflict){
+      REV = r.rev; DB = normalize(r.data);
+      await Store.set(KEY, DB);
+      setSync('error', 'Someone saved first \u2014 loaded theirs');
+      toast('Someone else saved while you were editing. Their version is now loaded, so redo your last change.');
+      renderWho(); render();
+      return;
+    }
+    REV = r.rev;
+    SYNC.by = r.by; SYNC.at = r.updated;
+    setSync('ok', 'Synced to the sheet');
+  }catch(e){
+    setSync('error', 'Sheet unreachable \u2014 saved locally');
+  }
+}
+async function cloudPull(silent){
+  if(!CFG.on) return;
+  setSync('syncing', 'Pulling from the sheet\u2026');
+  try{
+    const r = await Cloud.load();
+    REV = r.rev; SYNC.by = r.by; SYNC.at = r.updated;
+    DB = normalize(r.data);
+    await Store.set(KEY, DB);
+    if(!DB.people.some(p => p.id === ME)) ME = DB.people[0] ? DB.people[0].id : null;
+    setSync('ok', 'Synced to the sheet');
+    renderWho(); render();
+    if(!silent) toast('Loaded the latest from Google Sheets');
+  }catch(e){
+    setSync('error', e.message.slice(0,60));
+    if(!silent) toast(e.message);
+  }
+}
+function startPolling(){
+  clearInterval(pollTimer);
+  if(!CFG.on) return;
+  pollTimer = setInterval(async () => {
+    if($('.scrim') || SYNC.state === 'syncing') return;   // never yank the page mid-edit
+    try{
+      const r = await Cloud.ping();
+      if(r.rev > REV) await cloudPull(true);
+    }catch(e){ /* stay quiet, the next tick can try again */ }
+  }, 25000);
+}
+function normalize(d){
+  d = d || {};
+  ['tours','events','research','routes','notes','media','people','contacts'].forEach(k => d[k] = d[k] || []);
+  d.routes.forEach(r => r.stops = r.stops || []);
+  d.notes.forEach(n => n.actions = n.actions || []);
+  d.meta = d.meta || {};
+  return d;
+}
+
+/* ---------------- router ---------------- */
+const VIEWS = {
+  today:    {t:'Today',            glyph:'◆', blurb:'What is running, what needs a decision, and what is unassigned.'},
+  schedule: {t:'Tours & events',   glyph:'▤', blurb:'Every scheduled departure. Update seats and guides here.'},
+  research: {t:'Research library', glyph:'❖', blurb:'Sources, memos, and field notes the whole team can pull from on a tour.'},
+  builder:  {t:'Tour builder',     glyph:'⟡', blurb:'Map the route, order the stops, attach the research each stop needs.'},
+  notes:    {t:'Meeting notes',    glyph:'✎', blurb:'Decisions and who owns what happens next.'},
+  media:    {t:'Photos & video',   glyph:'▦', blurb:'Shoot links, clips, and stills, tagged by tour.'},
+  team:     {t:'Team profiles',    glyph:'☗', blurb:'Guides, researchers, and how to reach them.'},
+  contacts: {t:'Contact list',     glyph:'☏', blurb:'Venues, partners, press, schools, and vendors.'},
+  data:     {t:'Workspace',        glyph:'⚙', blurb:'Backups, tour catalog, and how this app stores your data.'}
+};
+let VIEW = 'today';
+function counts(){
+  return {
+    schedule: DB.events.filter(e => daysUntil(e.date) >= 0).length,
+    research: DB.research.length, builder: DB.routes.length, notes: DB.notes.length,
+    media: DB.media.length, team: DB.people.length, contacts: DB.contacts.length
+  };
+}
+function renderNav(){
+  const c = counts();
+  $('#nav').innerHTML = Object.entries(VIEWS).map(([k,v]) =>
+    `<button data-view="${k}" class="${k===VIEW?'on':''}"><span class="glyph">${v.glyph}</span>${esc(v.t)}${c[k]!==undefined?`<span class="count">${c[k]}</span>`:''}</button>`).join('');
+  $('#nav').querySelectorAll('button').forEach(b => b.onclick = () => go(b.dataset.view));
+}
+function go(v){ VIEW = v; render(); window.scrollTo(0,0); }
+function render(){
+  renderNav();
+  $('#vtitle').textContent = VIEWS[VIEW].t;
+  $('#vblurb').textContent = VIEWS[VIEW].blurb;
+  $('#vacts').innerHTML = '';
+  ({today:viewToday, schedule:viewSchedule, research:viewResearch, builder:viewBuilder,
+    notes:viewNotes, media:viewMedia, team:viewTeam, contacts:viewContacts, data:viewData})[VIEW]();
+}
+function actions(html){ $('#vacts').innerHTML = html; }
+
+/* ================= Today ================= */
+function viewToday(){
+  const upcoming = DB.events.filter(e => daysUntil(e.date) >= 0).sort(sortByDate);
+  const today = upcoming.filter(e => e.date === todayISO());
+  const week = upcoming.filter(e => daysUntil(e.date) > 0 && daysUntil(e.date) <= 7);
+  const openActions = DB.notes.flatMap(n => n.actions.filter(a => !a.done).map(a => ({...a, note:n.title})));
+  const unstaffed = upcoming.filter(e => !e.guide && e.status !== 'cancelled');
+  const seats = upcoming.reduce((s,e) => s + Math.max(0,(e.capacity||0)-(e.booked||0)), 0);
+  const guestsWeek = week.concat(today).reduce((s,e) => s + (e.booked||0), 0);
+
+  actions(`<button class="btn gold" onclick="newEvent()">Schedule a tour</button>`);
+
+  const runs = today.length
+    ? today.map(e => {
+        const t = byId(DB.tours, e.tourId), st = seatStatus(e);
+        return `<div class="run"><b>${esc(t ? t.name : 'Tour')}</b>
+          <div class="l">${fmtTime(e.time)} · ${esc(personName(e.guide))}</div>
+          <div class="l">${e.booked}/${e.capacity} booked · ${st.label}</div></div>`;
+      }).join('')
+    : `<div class="run"><b>No departures today</b><div class="l">Next: ${upcoming[0] ? relDay(upcoming[0].date).toLowerCase() + ', ' + esc((byId(DB.tours, upcoming[0].tourId)||{}).name || '') : 'nothing scheduled'}</div></div>`;
+
+  $('#view').innerHTML = `
+    <div class="today">
+      <div class="date">${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</div>
+      <h2>${today.length ? (today.length + ' tour' + (today.length>1?'s':'') + ' out today') : 'Nothing on the ground today'}</h2>
+      <div class="runs">${runs}</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b class="num">${week.length}</b><span>departures in the next 7 days</span></div>
+      <div class="stat"><b class="num">${guestsWeek}</b><span>guests booked this week</span></div>
+      <div class="stat"><b class="num">${seats}</b><span>open seats still to sell</span></div>
+      <div class="stat"><b class="num">${openActions.length}</b><span>open action items</span></div>
+    </div>
+    <div class="split">
+      <div class="panel">
+        <header><h3>Next two weeks</h3><div class="right"><button class="btn sm" onclick="go('schedule')">Full schedule</button></div></header>
+        <div class="body" style="padding:0">${
+          upcoming.filter(e => daysUntil(e.date) <= 14).length ? `<table><tbody>${
+            upcoming.filter(e => daysUntil(e.date) <= 14).map(e => {
+              const t = byId(DB.tours, e.tourId), st = seatStatus(e);
+              return `<tr>
+                <td style="width:120px"><b>${relDay(e.date)}</b><div class="meta">${fmtTime(e.time)}</div></td>
+                <td><b>${esc(t?t.name:'—')}</b><div class="meta">${esc(personName(e.guide))}${e.note?' · '+esc(e.note):''}</div></td>
+                <td style="width:150px"><span class="status s-${st.k}">${esc(st.label)}</span>${seatBar(e)}</td>
+                <td style="width:96px;text-align:right"><button class="btn sm" onclick="editEvent('${e.id}')">Update</button></td>
+              </tr>`;
+            }).join('')}</tbody></table>` : `<div style="padding:16px"><div class="empty"><strong>No departures scheduled</strong>Add one to start tracking seats.</div></div>`}
+        </div>
+      </div>
+      <div style="display:grid;gap:14px">
+        ${unstaffed.length ? `<div class="panel"><header><h3>Needs a guide</h3></header><div class="body">${
+          unstaffed.map(e => `<div style="margin-bottom:9px"><b>${esc((byId(DB.tours,e.tourId)||{}).name||'')}</b>
+            <div class="meta">${relDay(e.date)} · ${fmtTime(e.time)}</div>
+            <button class="btn sm" style="margin-top:5px" onclick="editEvent('${e.id}')">Assign</button></div>`).join('')}
+        </div></div>` : ''}
+        <div class="panel"><header><h3>Open action items</h3><div class="right"><button class="btn sm" onclick="go('notes')">Notes</button></div></header>
+          <div class="body">${openActions.length ? openActions.map(a =>
+            `<div class="actionitem"><input type="checkbox" onchange="toggleActionGlobal('${a.id}')">
+              <label>${esc(a.text)}<div class="meta">${esc(personName(a.who))}${a.due?' · due '+fmtDate(a.due):''} · from ${esc(a.note)}</div></label></div>`).join('')
+            : '<div class="meta">Nothing outstanding.</div>'}</div></div>
+        <div class="panel"><header><h3>Recent research</h3><div class="right"><button class="btn sm" onclick="go('research')">Library</button></div></header>
+          <div class="body">${DB.research.slice(-4).reverse().map(r =>
+            `<div style="margin-bottom:10px"><b>${esc(r.title)}</b><div class="meta">${esc(r.type)} · added by ${esc(personName(r.by))}</div></div>`).join('') || '<div class="meta">Empty. Add your first source.</div>'}</div></div>
+      </div>
+    </div>`;
+}
+function toggleActionGlobal(aid){
+  DB.notes.forEach(n => n.actions.forEach(a => { if(a.id === aid) a.done = !a.done; }));
+  save(); render();
+}
+
+/* ================= Schedule & availability ================= */
+let schedFilter = 'upcoming';
+function viewSchedule(){
+  actions(`<button class="btn" onclick="go('data')">Tour catalog</button><button class="btn gold" onclick="newEvent()">Schedule a tour</button>`);
+  let list = [...DB.events].sort(sortByDate);
+  if(schedFilter === 'upcoming') list = list.filter(e => daysUntil(e.date) >= 0);
+  if(schedFilter === 'past') list = list.filter(e => daysUntil(e.date) < 0).reverse();
+  if(schedFilter === 'attention') list = list.filter(e => daysUntil(e.date) >= 0 && (!e.guide || seatStatus(e).k === 'limited' || seatStatus(e).k === 'full'));
+
+  $('#view').innerHTML = `
+    <div class="toolbar">
+      <div class="chips">
+        ${[['upcoming','Upcoming'],['attention','Needs attention'],['past','Past'],['all','All']].map(([k,t]) =>
+          `<button class="chip ${schedFilter===k?'on':''}" onclick="schedFilter='${k}';render()">${t}</button>`).join('')}
+      </div>
+      <span class="meta" style="margin-left:auto">Change seats with the − and + buttons. Everything saves as you go.</span>
+    </div>
+    ${list.length ? `<div class="panel"><table>
+      <thead><tr><th style="width:130px">Date</th><th>Tour</th><th style="width:150px">Guide</th><th style="width:190px">Availability</th><th style="width:120px">Seats</th><th style="width:118px"></th></tr></thead>
+      <tbody>${list.map(rowEvent).join('')}</tbody></table></div>`
+    : `<div class="empty"><strong>Nothing here yet</strong>Schedule a departure and it will show up on the dashboard too.</div>`}`;
+}
+function rowEvent(e){
+  const t = byId(DB.tours, e.tourId), st = seatStatus(e);
+  return `<tr>
+    <td><b>${fmtDate(e.date)}</b><div class="meta">${fmtTime(e.time)} · ${relDay(e.date)}</div></td>
+    <td><b>${esc(t?t.name:'—')}</b>${e.note?`<div class="meta">${esc(e.note)}</div>`:''}</td>
+    <td>${e.guide ? esc(personName(e.guide)) : '<span class="status s-full">Unassigned</span>'}</td>
+    <td><span class="status s-${st.k}">${esc(st.label)}</span>${seatBar(e)}</td>
+    <td class="num"><button class="btn sm" onclick="bump('${e.id}',-1)" aria-label="Remove a booking">−</button>
+      <b style="padding:0 6px">${e.booked}</b>/${e.capacity}
+      <button class="btn sm" onclick="bump('${e.id}',1)" aria-label="Add a booking">+</button></td>
+    <td style="text-align:right"><button class="btn sm" onclick="editEvent('${e.id}')">Edit</button>
+      <button class="btn sm danger" onclick="delEvent('${e.id}')">Delete</button></td>
+  </tr>`;
+}
+function bump(id, n){
+  const e = byId(DB.events, id);
+  e.booked = Math.max(0, Math.min(e.capacity, (e.booked||0) + n));
+  save(); render();
+}
+function eventFields(){
+  return [
+    {k:'tourId', label:'Tour', type:'select', options: DB.tours.map(t => ({v:t.id, t:t.name}))},
+    {k:'date', label:'Date', type:'date'},
+    {k:'time', label:'Start time', type:'time'},
+    {k:'guide', label:'Guide', type:'select', options:[{v:'',t:'Unassigned'}].concat(DB.people.map(p => ({v:p.id, t:p.name})))},
+    {k:'capacity', label:'Capacity', type:'number'},
+    {k:'booked', label:'Booked', type:'number'},
+    {k:'status', label:'Listing status', type:'select', options:[{v:'open',t:'Open to the public'},{v:'private',t:'Private booking'},{v:'cancelled',t:'Cancelled'}]},
+    {k:'note', label:'Notes for the guide', type:'textarea', rows:3, hint:'Access needs, languages, meeting point changes.'}
+  ];
+}
+function newEvent(){
+  const f = eventFields();
+  openForm({title:'Schedule a tour', fields:f,
+    values:{tourId:DB.tours[0]?.id, date:todayISO(), time:'10:00', capacity:DB.tours[0]?.capacity||15, booked:0, status:'open'},
+    onSave:d => {
+      if(!d.date) return 'Pick a date.';
+      DB.events.push({id:uid('e'), ...d});
+      save('Tour scheduled'); render();
+    }});
+}
+function editEvent(id){
+  const e = byId(DB.events, id);
+  openForm({title:'Update departure', fields:eventFields(), values:e,
+    onSave:d => { Object.assign(e, d); save('Departure updated'); render(); }});
+}
+function delEvent(id){
+  confirmDelete('this departure', () => { DB.events = DB.events.filter(x => x.id !== id); save('Deleted'); render(); });
+}
+
+/* ================= Research library ================= */
+let resQuery = '', resTag = '';
+function allResTags(){ return [...new Set(DB.research.flatMap(r => r.tags || []))].sort(); }
+function viewResearch(){
+  actions(`<button class="btn gold" onclick="newResearch()">Add research</button>`);
+  const q = resQuery.toLowerCase();
+  const list = DB.research.filter(r => {
+    const hay = (r.title + ' ' + r.body + ' ' + (r.tags||[]).join(' ') + ' ' + r.author).toLowerCase();
+    return (!q || hay.includes(q)) && (!resTag || (r.tags||[]).includes(resTag));
+  }).slice().reverse();
+
+  $('#view').innerHTML = `
+    <div class="toolbar">
+      <input class="search" type="text" id="resq" placeholder="Search titles, text, tags" value="${esc(resQuery)}">
+      <div class="chips">
+        <button class="chip ${!resTag?'on':''}" onclick="resTag='';render()">All topics</button>
+        ${allResTags().map(t => `<button class="chip ${resTag===t?'on':''}" onclick="resTag='${jsq(t)}';render()">${esc(t)}</button>`).join('')}
+      </div>
+    </div>
+    ${list.length ? `<div class="grid g2">${list.map(cardResearch).join('')}</div>`
+      : `<div class="empty"><strong>Nothing matches</strong>Add a source, a memo, or a field note and tag it so guides can find it on a route.</div>`}`;
+  const s = $('#resq');
+  s.oninput = () => { resQuery = s.value; const p = s.selectionStart; render(); const n = $('#resq'); n.focus(); n.setSelectionRange(p,p); };
+}
+function cardResearch(r){
+  const used = DB.routes.flatMap(rt => rt.stops.filter(s => (s.research||[]).includes(r.id)).map(s => s.name));
+  return `<article class="panel">
+    <header><h3>${esc(r.title)}</h3></header>
+    <div class="body">
+      <div class="meta">${esc(r.type)}${r.author?' · '+esc(r.author):''}${r.year?' · '+esc(r.year):''} · added by ${esc(personName(r.by))}</div>
+      <p class="prose" style="margin:10px 0 8px;font-size:14px">${esc((r.body||'').slice(0,320))}${(r.body||'').length>320?'…':''}</p>
+      ${r.source ? `<div class="meta" style="margin-bottom:6px">Source: <a href="${esc(r.source)}" target="_blank" rel="noopener">${esc(r.source.slice(0,52))}</a></div>` : ''}
+      <div>${tagList(r.tags)}</div>
+      ${used.length ? `<div class="meta" style="margin-top:8px">Used at: ${esc(used.join(', '))}</div>` : ''}
+      <div style="margin-top:12px;display:flex;gap:7px">
+        <button class="btn sm" onclick="readResearch('${r.id}')">Read</button>
+        <button class="btn sm" onclick="editResearch('${r.id}')">Edit</button>
+        <button class="btn sm danger" onclick="delResearch('${r.id}')">Delete</button>
+      </div>
+    </div></article>`;
+}
+function researchFields(){
+  return [
+    {k:'title', label:'Title', type:'text'},
+    {k:'type', label:'Kind', type:'select', options:['Primary source','Secondary source','Research memo','Oral history','Field note','Photo or map','Newspaper','Other'].map(v=>({v,t:v}))},
+    {k:'author', label:'Author or holder', type:'text', placeholder:'Who wrote or holds it'},
+    {k:'year', label:'Year or date', type:'text'},
+    {k:'source', label:'Link to the file or archive', type:'url', placeholder:'https://', hint:'Paste a Drive, Dropbox, or archive link. Keep large files there, not here.'},
+    {k:'tags', label:'Tags', type:'tags', hint:'Guides filter by these. Try place, theme, and tour name.'},
+    {k:'body', label:'Notes, summary, or full text', type:'textarea', rows:10}
+  ];
+}
+function newResearch(){
+  openForm({title:'Add research', fields:researchFields(), values:{type:'Research memo'}, wide:true,
+    onSave:d => {
+      if(!d.title) return 'Give it a title.';
+      DB.research.push({id:uid('r'), ...d, by:ME, added:todayISO()});
+      save('Added to the library'); render();
+    }});
+}
+function editResearch(id){
+  const r = byId(DB.research, id);
+  openForm({title:'Edit research', fields:researchFields(), values:r, wide:true,
+    onSave:d => { Object.assign(r, d); save('Updated'); render(); }});
+}
+function delResearch(id){
+  confirmDelete('this research entry', () => {
+    DB.research = DB.research.filter(r => r.id !== id);
+    DB.routes.forEach(rt => rt.stops.forEach(s => s.research = (s.research||[]).filter(x => x !== id)));
+    save('Deleted'); render();
+  });
+}
+function readResearch(id){
+  const r = byId(DB.research, id);
+  openModal(r.title, `<div class="meta" style="margin-bottom:12px">${esc(r.type)}${r.author?' · '+esc(r.author):''}${r.year?' · '+esc(r.year):''} · added by ${esc(personName(r.by))} on ${fmtDate(r.added)}</div>
+    ${r.source?`<div style="margin-bottom:12px"><a href="${esc(r.source)}" target="_blank" rel="noopener">Open the source</a></div>`:''}
+    <div class="prose">${esc(r.body)}</div><div style="margin-top:14px">${tagList(r.tags)}</div>`,
+    `<button class="btn" data-close>Close</button><button class="btn primary" onclick="closeModal();editResearch('${r.id}')">Edit</button>`, true);
+}
+
+/* ================= Tour builder ================= */
+const AUSTIN = {lat:30.2672, lng:-97.7431};
+const BBOX = {n:30.34, s:30.20, w:-97.82, e:-97.66};
+let routeId = null, mapObj = null, mapMarkers = [], mapLine = null;
+
+function viewBuilder(){
+  if(!routeId || !byId(DB.routes, routeId)) routeId = DB.routes[0]?.id || null;
+  actions(`<select id="routepick" style="width:auto;min-width:220px">${
+      DB.routes.map(r => `<option value="${r.id}"${r.id===routeId?' selected':''}>${esc(r.name)}</option>`).join('')
+    }</select><button class="btn gold" onclick="newRoute()">New route</button>`);
+
+  const r = byId(DB.routes, routeId);
+  if(!r){
+    $('#view').innerHTML = `<div class="empty"><strong>No routes yet</strong>Build one: drop stops on the map in the order you walk them, then attach the research each stop needs.</div>`;
+    return;
+  }
+  const tour = byId(DB.tours, r.tourId);
+  const totalMins = r.stops.reduce((s,x) => s + (Number(x.mins)||0), 0);
+
+  $('#view').innerHTML = `
+    <div class="split">
+      <div>
+        <div class="panel" style="margin-bottom:14px">
+          <header><h3>${esc(r.name)}</h3><div class="right">
+            <button class="btn sm" onclick="runSheet()">Run sheet</button>
+            <button class="btn sm" onclick="editRoute()">Rename</button>
+            <button class="btn sm danger" onclick="delRoute()">Delete</button></div></header>
+          <div class="body">
+            <div class="meta">${esc(tour ? tour.name : 'Not linked to a tour')} · ${r.stops.length} stops · about ${totalMins} min on site</div>
+            ${r.notes ? `<p class="prose" style="margin:9px 0 0;font-size:14px">${esc(r.notes)}</p>` : ''}
+          </div>
+        </div>
+        <div id="mapwrap"></div>
+        <p class="meta" style="margin-top:8px">Click the map to drop the next stop. Drag a pin to move it.</p>
+      </div>
+      <div>
+        <div class="panel"><header><h3>Stops in order</h3><div class="right"><button class="btn sm" onclick="addStopManual()">Add stop</button></div></header>
+          <div class="body" id="stoplist">${r.stops.length ? r.stops.map((s,i) => stopCard(s,i,r)).join('')
+            : `<div class="empty"><strong>No stops yet</strong>Click the map where the tour starts.</div>`}</div></div>
+      </div>
+    </div>`;
+
+  $('#routepick').onchange = e => { routeId = e.target.value; render(); };
+  mountMap(r);
+}
+function stopCard(s, i, r){
+  const attached = (s.research||[]).map(id => byId(DB.research, id)).filter(Boolean);
+  const free = DB.research.filter(x => !(s.research||[]).includes(x.id));
+  return `<div class="stop">
+    <div class="hd"><span class="n">${i+1}</span><b>${esc(s.name)}</b>
+      <span class="sp">
+        <button class="btn sm" onclick="moveStop('${s.id}',-1)" ${i===0?'disabled':''} aria-label="Move up">↑</button>
+        <button class="btn sm" onclick="moveStop('${s.id}',1)" ${i===r.stops.length-1?'disabled':''} aria-label="Move down">↓</button>
+        <button class="btn sm" onclick="editStop('${s.id}')">Edit</button>
+        <button class="btn sm danger" onclick="delStop('${s.id}')">×</button>
+      </span></div>
+    <div class="meta">${s.mins ? s.mins + ' min · ' : ''}${Number(s.lat).toFixed(4)}, ${Number(s.lng).toFixed(4)}</div>
+    ${s.script ? `<p class="prose" style="font-size:13.5px;margin:7px 0 0">${esc(s.script)}</p>` : ''}
+    <details ${attached.length?'open':''}>
+      <summary>Research at this stop (${attached.length})</summary>
+      <div style="margin-top:7px">
+        ${attached.map(a => `<div style="display:flex;gap:7px;align-items:center;padding:3px 0">
+            <button class="btn sm" onclick="readResearch('${a.id}')" style="flex:1;text-align:left">${esc(a.title)}</button>
+            <button class="btn sm danger" onclick="detach('${s.id}','${a.id}')" aria-label="Remove">×</button></div>`).join('')
+          || '<div class="meta">Nothing attached yet.</div>'}
+        ${free.length ? `<select onchange="attach('${s.id}',this.value)" style="margin-top:7px">
+            <option value="">Attach research…</option>
+            ${free.map(x => `<option value="${x.id}">${esc(x.title)}</option>`).join('')}</select>`
+          : `<div class="meta" style="margin-top:7px">Everything in the library is already here.</div>`}
+      </div>
+    </details>
+  </div>`;
+}
+function curRoute(){ return byId(DB.routes, routeId); }
+function attach(sid, rid){
+  if(!rid) return;
+  const s = curRoute().stops.find(x => x.id === sid);
+  s.research = s.research || []; s.research.push(rid);
+  save('Attached'); render();
+}
+function detach(sid, rid){
+  const s = curRoute().stops.find(x => x.id === sid);
+  s.research = s.research.filter(x => x !== rid);
+  save(); render();
+}
+function moveStop(sid, dir){
+  const st = curRoute().stops, i = st.findIndex(x => x.id === sid), j = i + dir;
+  if(j < 0 || j >= st.length) return;
+  [st[i], st[j]] = [st[j], st[i]];
+  save(); render();
+}
+function delStop(sid){
+  const r = curRoute();
+  confirmDelete('this stop', () => { r.stops = r.stops.filter(x => x.id !== sid); save('Stop removed'); render(); });
+}
+function stopFields(){
+  return [
+    {k:'name', label:'Stop name', type:'text'},
+    {k:'mins', label:'Minutes on site', type:'number'},
+    {k:'lat', label:'Latitude', type:'text'},
+    {k:'lng', label:'Longitude', type:'text'},
+    {k:'script', label:'What the guide covers here', type:'textarea', rows:6},
+    {k:'research', label:'Research to bring', type:'picklist', options: DB.research.map(r => ({v:r.id, t:r.title}))}
+  ];
+}
+function addStopAt(lat, lng){
+  openForm({title:'New stop', fields:stopFields(), values:{lat:lat.toFixed(5), lng:lng.toFixed(5), mins:10, research:[]},
+    onSave:d => {
+      if(!d.name) return 'Name the stop.';
+      curRoute().stops.push({id:uid('s'), ...d, lat:Number(d.lat), lng:Number(d.lng)});
+      save('Stop added'); render();
+    }});
+}
+function addStopManual(){ addStopAt(AUSTIN.lat, AUSTIN.lng); }
+function editStop(sid){
+  const s = curRoute().stops.find(x => x.id === sid);
+  openForm({title:'Edit stop', fields:stopFields(), values:s,
+    onSave:d => { Object.assign(s, d, {lat:Number(d.lat), lng:Number(d.lng)}); save('Stop updated'); render(); }});
+}
+function newRoute(){
+  openForm({title:'New route', fields:[
+      {k:'name', label:'Route name', type:'text', placeholder:'East Austin walk — rainy day version'},
+      {k:'tourId', label:'Belongs to', type:'select', options:[{v:'',t:'Not linked yet'}].concat(DB.tours.map(t=>({v:t.id,t:t.name})))},
+      {k:'notes', label:'Route notes', type:'textarea', rows:4, hint:'Distance, pacing, bathrooms, where you end.'}
+    ], values:{},
+    onSave:d => {
+      if(!d.name) return 'Name the route.';
+      const r = {id:uid('rt'), ...d, stops:[]};
+      DB.routes.push(r); routeId = r.id; save('Route created'); render();
+    }});
+}
+function editRoute(){
+  const r = curRoute();
+  openForm({title:'Route details', fields:[
+      {k:'name', label:'Route name', type:'text'},
+      {k:'tourId', label:'Belongs to', type:'select', options:[{v:'',t:'Not linked yet'}].concat(DB.tours.map(t=>({v:t.id,t:t.name})))},
+      {k:'notes', label:'Route notes', type:'textarea', rows:4}
+    ], values:r,
+    onSave:d => { Object.assign(r, d); save('Updated'); render(); }});
+}
+function delRoute(){
+  confirmDelete('this route', () => { DB.routes = DB.routes.filter(x => x.id !== routeId); routeId = null; save('Route deleted'); render(); });
+}
+function runSheet(){
+  const r = curRoute();
+  const html = `<div class="meta" style="margin-bottom:14px">${esc((byId(DB.tours,r.tourId)||{}).name||'')} · ${r.stops.length} stops</div>
+    ${r.notes?`<p class="prose" style="font-size:14px">${esc(r.notes)}</p><hr style="border:0;border-top:1px solid var(--line);margin:14px 0">`:''}
+    ${r.stops.map((s,i) => `<div style="margin-bottom:16px">
+      <h4>${i+1}. ${esc(s.name)} <span class="meta" style="font-weight:400">${s.mins?s.mins+' min':''}</span></h4>
+      ${s.script?`<p class="prose" style="font-size:14px;margin:5px 0">${esc(s.script)}</p>`:''}
+      ${(s.research||[]).length?`<div class="meta">Sources: ${(s.research||[]).map(id=>esc((byId(DB.research,id)||{}).title||'')).join('; ')}</div>`:''}
+    </div>`).join('')}`;
+  openModal('Run sheet — ' + r.name, html, `<button class="btn" data-close>Close</button><button class="btn primary" onclick="window.print()">Print</button>`, true);
+}
+
+/* ---------- map: Leaflet, with a plain grid fallback ---------- */
+function mountMap(r){
+  const wrap = $('#mapwrap');
+  if(!wrap) return;
+  const pts = r.stops.filter(s => isFinite(s.lat) && isFinite(s.lng));
+  if(window.L && L.map){
+    wrap.innerHTML = '<div id="map"></div>';
+    mapObj = L.map('map', {scrollWheelZoom:false}).setView(pts.length ? [pts[0].lat, pts[0].lng] : [AUSTIN.lat, AUSTIN.lng], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom:19, attribution:'&copy; OpenStreetMap'
+    }).addTo(mapObj);
+    mapMarkers = pts.map((s,i) => {
+      const m = L.marker([s.lat, s.lng], {draggable:true,
+        icon: L.divIcon({className:'', html:`<div class="numpin">${i+1}</div>`, iconSize:[26,26], iconAnchor:[13,13]})}).addTo(mapObj);
+      m.bindPopup(`<b>${esc(s.name)}</b><br>${(s.research||[]).length} sources attached`);
+      m.on('dragend', ev => {
+        const ll = ev.target.getLatLng();
+        s.lat = ll.lat; s.lng = ll.lng; save('Stop moved'); render();
+      });
+      return m;
+    });
+    if(pts.length > 1){
+      mapLine = L.polyline(pts.map(s => [s.lat, s.lng]), {color:'#B07D12', weight:3, dashArray:'6 5'}).addTo(mapObj);
+      mapObj.fitBounds(mapLine.getBounds().pad(0.25));
+    }
+    mapObj.on('click', e => addStopAt(e.latlng.lat, e.latlng.lng));
+    setTimeout(() => mapObj.invalidateSize(), 60);
+  } else {
+    wrap.innerHTML = `<div id="fallbackmap"><div class="fg"></div>
+      <div class="note">Offline mode: the map tiles could not load, so stops are plotted on an Austin grid. Coordinates are still real.</div></div>`;
+    const el = $('#fallbackmap');
+    const toXY = (lat,lng) => ({
+      x: ((lng - BBOX.w) / (BBOX.e - BBOX.w)) * el.clientWidth,
+      y: ((BBOX.n - lat) / (BBOX.n - BBOX.s)) * el.clientHeight
+    });
+    pts.forEach((s,i) => {
+      const {x,y} = toXY(s.lat, s.lng);
+      const pin = document.createElement('div');
+      pin.className = 'fpin'; pin.style.left = x + 'px'; pin.style.top = y + 'px';
+      pin.innerHTML = `<span>${i+1}</span>`; pin.title = s.name;
+      el.appendChild(pin);
+    });
+    el.onclick = ev => {
+      if(ev.target.closest('.fpin')) return;
+      const b = el.getBoundingClientRect();
+      const lng = BBOX.w + ((ev.clientX - b.left)/b.width) * (BBOX.e - BBOX.w);
+      const lat = BBOX.n - ((ev.clientY - b.top)/b.height) * (BBOX.n - BBOX.s);
+      addStopAt(lat, lng);
+    };
+  }
+}
+
+/* ================= Meeting notes ================= */
+function viewNotes(){
+  actions(`<button class="btn gold" onclick="newNote()">New meeting note</button>`);
+  const list = [...DB.notes].sort((a,b) => b.date.localeCompare(a.date));
+  $('#view').innerHTML = list.length ? `<div class="grid g2">${list.map(noteCard).join('')}</div>`
+    : `<div class="empty"><strong>No notes yet</strong>Capture the decision and who owns the follow-up. Action items show on the dashboard until they're checked off.</div>`;
+}
+function noteCard(n){
+  const open = n.actions.filter(a => !a.done).length;
+  return `<article class="panel">
+    <header><h3>${esc(n.title)}</h3><div class="right meta">${fmtDate(n.date)}</div></header>
+    <div class="body">
+      <div class="meta">${(n.attendees||[]).map(personName).map(esc).join(', ') || 'No attendees listed'}</div>
+      <p class="prose" style="font-size:14px;margin:10px 0">${esc((n.body||'').slice(0,260))}${(n.body||'').length>260?'…':''}</p>
+      ${n.actions.length ? `<div style="margin-top:6px">${n.actions.map(a =>
+        `<div class="actionitem ${a.done?'done':''}"><input type="checkbox" ${a.done?'checked':''} onchange="toggleAction('${n.id}','${a.id}')">
+          <label>${esc(a.text)}<div class="meta">${esc(personName(a.who))}${a.due?' · due '+fmtDate(a.due):''}</div></label></div>`).join('')}</div>` : ''}
+      <div style="margin-top:12px;display:flex;gap:7px">
+        <button class="btn sm" onclick="readNote('${n.id}')">Open</button>
+        <button class="btn sm" onclick="addAction('${n.id}')">Add action item</button>
+        <button class="btn sm" onclick="editNote('${n.id}')">Edit</button>
+        <button class="btn sm danger" onclick="delNote('${n.id}')">Delete</button>
+      </div>
+      ${open ? `<div class="meta" style="margin-top:8px">${open} still open</div>` : ''}
+    </div></article>`;
+}
+function noteFields(){
+  return [
+    {k:'title', label:'Meeting', type:'text', placeholder:'Weekly guide huddle'},
+    {k:'date', label:'Date', type:'date'},
+    {k:'attendees', label:'Who was there', type:'picklist', options: DB.people.map(p => ({v:p.id, t:p.name}))},
+    {k:'body', label:'Notes and decisions', type:'textarea', rows:12}
+  ];
+}
+function newNote(){
+  openForm({title:'New meeting note', fields:noteFields(), values:{date:todayISO(), attendees:[ME]}, wide:true,
+    onSave:d => {
+      if(!d.title) return 'Name the meeting.';
+      DB.notes.push({id:uid('n'), ...d, actions:[], by:ME});
+      save('Note saved'); render();
+    }});
+}
+function editNote(id){
+  const n = byId(DB.notes, id);
+  openForm({title:'Edit note', fields:noteFields(), values:n, wide:true,
+    onSave:d => { Object.assign(n, d); save('Updated'); render(); }});
+}
+function delNote(id){ confirmDelete('this note', () => { DB.notes = DB.notes.filter(n => n.id !== id); save('Deleted'); render(); }); }
+function readNote(id){
+  const n = byId(DB.notes, id);
+  openModal(n.title, `<div class="meta" style="margin-bottom:12px">${fmtDate(n.date,{weekday:'long',month:'long',day:'numeric'})} · ${(n.attendees||[]).map(personName).map(esc).join(', ')}</div>
+    <div class="prose">${esc(n.body)}</div>
+    ${n.actions.length?`<h4 style="margin-top:18px">Action items</h4>${n.actions.map(a=>`<div class="actionitem ${a.done?'done':''}"><input type="checkbox" ${a.done?'checked':''} onchange="toggleAction('${n.id}','${a.id}')"><label>${esc(a.text)}<div class="meta">${esc(personName(a.who))}${a.due?' · due '+fmtDate(a.due):''}</div></label></div>`).join('')}`:''}`,
+    `<button class="btn" data-close>Close</button>`, true);
+}
+function toggleAction(nid, aid){
+  const a = byId(DB.notes, nid).actions.find(x => x.id === aid);
+  a.done = !a.done; save(); render();
+}
+function addAction(nid){
+  openForm({title:'Add action item', fields:[
+      {k:'text', label:'What needs to happen', type:'text'},
+      {k:'who', label:'Owner', type:'select', options: DB.people.map(p => ({v:p.id, t:p.name}))},
+      {k:'due', label:'Due', type:'date'}
+    ], values:{who:ME},
+    onSave:d => {
+      if(!d.text) return 'Describe the task.';
+      byId(DB.notes, nid).actions.push({id:uid('a'), ...d, done:false});
+      save('Action added'); render();
+    }});
+}
+
+/* ================= Photos & video ================= */
+let mediaTag = '';
+function viewMedia(){
+  actions(`<button class="btn gold" onclick="newMedia()">Add a link</button>`);
+  const tags = [...new Set(DB.media.flatMap(m => m.tags||[]))].sort();
+  const list = DB.media.filter(m => !mediaTag || (m.tags||[]).includes(mediaTag)).slice().reverse();
+  $('#view').innerHTML = `
+    <div class="drop" id="drop">Drop image files here to keep a small preview in this workspace. For full-resolution files and video, add a Drive, Dropbox, or YouTube link instead.</div>
+    ${tags.length ? `<div class="toolbar"><div class="chips">
+      <button class="chip ${!mediaTag?'on':''}" onclick="mediaTag='';render()">Everything</button>
+      ${tags.map(t => `<button class="chip ${mediaTag===t?'on':''}" onclick="mediaTag='${jsq(t)}';render()">${esc(t)}</button>`).join('')}</div></div>` : ''}
+    ${list.length ? `<div class="media">${list.map(mediaCard).join('')}</div>`
+      : `<div class="empty"><strong>Nothing here yet</strong>Add the shoot folder for your last tour so guides and marketing pull from the same place.</div>`}`;
+  wireDrop();
+}
+function mediaCard(m){
+  const thumb = m.thumb ? `style="background-image:url('${m.thumb}')"` : '';
+  const glyph = m.kind === 'Video' ? '▶' : m.kind === 'Folder' ? '▤' : '▦';
+  return `<div class="mcard">
+    <div class="th" ${thumb}>${m.thumb ? '' : glyph}</div>
+    <div class="cap"><b>${esc(m.title)}</b>
+      <div class="meta">${esc(m.kind)}${m.date?' · '+fmtDate(m.date):''} · ${esc(personName(m.by))}</div>
+      <div style="margin-top:5px">${tagList(m.tags)}</div></div>
+    <div class="row">
+      ${m.url ? `<a class="btn sm" href="${esc(m.url)}" target="_blank" rel="noopener">Open</a>` : ''}
+      <button class="btn sm" onclick="editMedia('${m.id}')">Edit</button>
+      <button class="btn sm danger" onclick="delMedia('${m.id}')">×</button>
+    </div></div>`;
+}
+function mediaFields(){
+  return [
+    {k:'title', label:'What is it', type:'text', placeholder:'East Austin walk — April group photos'},
+    {k:'kind', label:'Kind', type:'select', options:['Photo','Video','Folder','Audio'].map(v=>({v,t:v}))},
+    {k:'url', label:'Link', type:'url', placeholder:'https://'},
+    {k:'date', label:'Date shot', type:'date'},
+    {k:'tags', label:'Tags', type:'tags', hint:'Tour name, guide, use — for example: East Austin, marketing, cleared for social.'},
+    {k:'credit', label:'Photo or video credit', type:'text', hint:'Who shot it, and whether you can publish it.'}
+  ];
+}
+function newMedia(){
+  openForm({title:'Add a link', fields:mediaFields(), values:{kind:'Folder', date:todayISO()},
+    onSave:d => {
+      if(!d.title) return 'Give it a name.';
+      DB.media.push({id:uid('m'), ...d, by:ME, thumb:''});
+      save('Added'); render();
+    }});
+}
+function editMedia(id){
+  const m = byId(DB.media, id);
+  openForm({title:'Edit item', fields:mediaFields(), values:m,
+    onSave:d => { Object.assign(m, d); save('Updated'); render(); }});
+}
+function delMedia(id){ confirmDelete('this item', () => { DB.media = DB.media.filter(m => m.id !== id); save('Deleted'); render(); }); }
+
+function wireDrop(){
+  const d = $('#drop'); if(!d) return;
+  d.ondragover = e => { e.preventDefault(); d.classList.add('over'); };
+  d.ondragleave = () => d.classList.remove('over');
+  d.ondrop = async e => {
+    e.preventDefault(); d.classList.remove('over');
+    const files = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/'));
+    if(!files.length) return toast('Images only. Add a link for video.');
+    for(const f of files.slice(0,6)){
+      const thumb = await shrink(f);
+      DB.media.push({id:uid('m'), title:f.name.replace(/\.[^.]+$/,''), kind:'Photo', url:'', date:todayISO(), tags:[], credit:'', by:ME, thumb});
+    }
+    save(files.length + ' added'); render();
+  };
+}
+function shrink(file){
+  return new Promise(res => {
+    const fr = new FileReader();
+    fr.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const max = 420, sc = Math.min(1, max / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = img.width * sc; c.height = img.height * sc;
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        res(c.toDataURL('image/jpeg', 0.6));
+      };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+/* ================= Team profiles ================= */
+function viewTeam(){
+  actions(`<button class="btn gold" onclick="newPerson()">Add a person</button>`);
+  $('#view').innerHTML = `<div class="grid g2">${DB.people.map(personCard).join('')}</div>`;
+}
+function personCard(p){
+  const led = DB.events.filter(e => e.guide === p.id && daysUntil(e.date) >= 0).length;
+  return `<article class="person">
+    <div class="avatar" ${p.photo?`style="background-image:url('${p.photo}')"`:''}>${p.photo?'':esc(initials(p.name))}</div>
+    <div style="flex:1;min-width:0">
+      <h4>${esc(p.name)}</h4><div class="role">${esc(p.role)}</div>
+      <div class="lines">
+        ${p.email?`<div>${esc(p.email)}</div>`:''}
+        ${p.phone?`<div>${esc(p.phone)}</div>`:''}
+        ${p.languages?`<div class="meta">Speaks ${esc(p.languages)}</div>`:''}
+        ${p.tours?`<div class="meta">Leads ${esc(p.tours)}</div>`:''}
+        <div class="meta">${led} upcoming departure${led===1?'':'s'}</div>
+      </div>
+      ${p.bio?`<p class="prose" style="font-size:13.5px;margin:9px 0 0">${esc(p.bio.slice(0,180))}${p.bio.length>180?'…':''}</p>`:''}
+      <div style="margin-top:10px;display:flex;gap:7px">
+        <button class="btn sm" onclick="editPerson('${p.id}')">Edit</button>
+        <button class="btn sm danger" onclick="delPerson('${p.id}')">Remove</button>
+      </div>
+    </div></article>`;
+}
+function personFields(){
+  return [
+    {k:'name', label:'Name', type:'text'},
+    {k:'role', label:'Role', type:'text', placeholder:'Tour guide'},
+    {k:'email', label:'Email', type:'email'},
+    {k:'phone', label:'Phone', type:'tel'},
+    {k:'languages', label:'Languages', type:'text'},
+    {k:'tours', label:'Tours they can lead', type:'text'},
+    {k:'photo', label:'Photo link', type:'url', placeholder:'https://', hint:'Optional. Any public image link works.'},
+    {k:'bio', label:'Bio', type:'textarea', rows:5, hint:'The version you would hand to a corporate client.'},
+    {k:'notes', label:'Internal notes', type:'textarea', rows:3, hint:'Availability, pay rate, certifications. Team only.'}
+  ];
+}
+function newPerson(){
+  openForm({title:'Add a person', fields:personFields(), values:{role:'Tour guide'},
+    onSave:d => {
+      if(!d.name) return 'Name required.';
+      DB.people.push({id:uid('p'), ...d});
+      save('Added to the team'); render();
+    }});
+}
+function editPerson(id){
+  const p = byId(DB.people, id);
+  openForm({title:'Edit profile', fields:personFields(), values:p,
+    onSave:d => { Object.assign(p, d); save('Profile updated'); renderWho(); render(); }});
+}
+function delPerson(id){
+  if(DB.people.length <= 1) return toast('Keep at least one person.');
+  confirmDelete('this profile', () => {
+    DB.people = DB.people.filter(p => p.id !== id);
+    DB.events.forEach(e => { if(e.guide === id) e.guide = ''; });
+    if(ME === id) ME = DB.people[0].id;
+    save('Removed'); renderWho(); render();
+  });
+}
+
+/* ================= Contacts ================= */
+let contactKind = '', contactQ = '';
+function viewContacts(){
+  actions(`<button class="btn gold" onclick="newContact()">Add a contact</button>`);
+  const kinds = [...new Set(DB.contacts.map(c => c.kind))].sort();
+  const q = contactQ.toLowerCase();
+  const list = DB.contacts.filter(c =>
+    (!contactKind || c.kind === contactKind) &&
+    (!q || (c.name + c.org + (c.tags||[]).join(' ') + c.notes).toLowerCase().includes(q))
+  ).sort((a,b) => a.name.localeCompare(b.name));
+
+  $('#view').innerHTML = `
+    <div class="toolbar">
+      <input class="search" type="text" id="cq" placeholder="Search contacts" value="${esc(contactQ)}">
+      <div class="chips"><button class="chip ${!contactKind?'on':''}" onclick="contactKind='';render()">All</button>
+        ${kinds.map(k => `<button class="chip ${contactKind===k?'on':''}" onclick="contactKind='${jsq(k)}';render()">${esc(k)}</button>`).join('')}</div>
+    </div>
+    ${list.length ? `<div class="panel"><table>
+      <thead><tr><th>Name</th><th style="width:150px">Kind</th><th style="width:230px">Reach them</th><th>Notes</th><th style="width:110px"></th></tr></thead>
+      <tbody>${list.map(c => `<tr>
+        <td><b>${esc(c.name)}</b>${c.org && c.org !== c.name ? `<div class="meta">${esc(c.org)}</div>` : ''}${(c.tags||[]).length?`<div>${tagList(c.tags)}</div>`:''}</td>
+        <td><span class="tag">${esc(c.kind)}</span></td>
+        <td>${c.email?`<div><a href="mailto:${esc(c.email)}">${esc(c.email)}</a></div>`:''}${c.phone?`<div><a href="tel:${esc(c.phone)}">${esc(c.phone)}</a></div>`:''}${c.address?`<div class="meta">${esc(c.address)}</div>`:''}</td>
+        <td class="meta">${esc(c.notes||'')}</td>
+        <td style="text-align:right"><button class="btn sm" onclick="editContact('${c.id}')">Edit</button>
+          <button class="btn sm danger" onclick="delContact('${c.id}')">×</button></td></tr>`).join('')}</tbody></table></div>`
+      : `<div class="empty"><strong>No contacts match</strong>Add the venues, restaurants, schools, and press you work with.</div>`}`;
+  const s = $('#cq');
+  s.oninput = () => { contactQ = s.value; const p = s.selectionStart; render(); const n = $('#cq'); n.focus(); n.setSelectionRange(p,p); };
+}
+function contactFields(){
+  return [
+    {k:'name', label:'Name', type:'text'},
+    {k:'org', label:'Organization', type:'text'},
+    {k:'kind', label:'Kind', type:'select', options:['Venue','Partner','Vendor','School or group','Press','Corporate client','Community','Other'].map(v=>({v,t:v}))},
+    {k:'email', label:'Email', type:'email'},
+    {k:'phone', label:'Phone', type:'tel'},
+    {k:'address', label:'Address', type:'text'},
+    {k:'tags', label:'Tags', type:'tags'},
+    {k:'notes', label:'Notes', type:'textarea', rows:4, hint:'Booking terms, who to ask for, lead time needed.'}
+  ];
+}
+function newContact(){
+  openForm({title:'Add a contact', fields:contactFields(), values:{kind:'Venue'},
+    onSave:d => { if(!d.name) return 'Name required.'; DB.contacts.push({id:uid('c'), ...d}); save('Contact added'); render(); }});
+}
+function editContact(id){
+  const c = byId(DB.contacts, id);
+  openForm({title:'Edit contact', fields:contactFields(), values:c,
+    onSave:d => { Object.assign(c, d); save('Updated'); render(); }});
+}
+function delContact(id){ confirmDelete('this contact', () => { DB.contacts = DB.contacts.filter(c => c.id !== id); save('Deleted'); render(); }); }
+
+/* ================= Workspace ================= */
+function viewData(){
+  actions(`<button class="btn" onclick="exportData()">Export backup</button><button class="btn gold" onclick="newTour()">Add a tour</button>`);
+  $('#view').innerHTML = `
+    <div class="panel" style="margin-bottom:18px">
+      <header><h3>Tour catalog</h3></header>
+      <table><thead><tr><th>Tour</th><th style="width:170px">Format</th><th style="width:110px">Capacity</th><th>Meeting point</th><th style="width:110px"></th></tr></thead>
+        <tbody>${DB.tours.map(t => `<tr>
+          <td><b>${esc(t.name)}</b><div class="meta">${esc((t.blurb||'').slice(0,120))}${(t.blurb||'').length>120?'…':''}</div></td>
+          <td>${esc(t.type)}<div class="meta">${esc(t.duration||'')}${t.distance?' · '+esc(t.distance):''}</div></td>
+          <td class="num">${t.capacity}</td>
+          <td class="meta">${esc(t.meet||'')}</td>
+          <td style="text-align:right"><button class="btn sm" onclick="editTour('${t.id}')">Edit</button>
+            <button class="btn sm danger" onclick="delTour('${t.id}')">×</button></td></tr>`).join('')}</tbody></table>
+    </div>
+    <div class="grid g2">
+      ${sheetsPanel()}
+      <div class="panel"><header><h3>Backups</h3></header><div class="body">
+        <p style="margin-top:0">A copy also lives in <b>${esc(Store.label())}</b> so the app keeps working if the sheet is unreachable.</p>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+          <button class="btn" onclick="exportData()">Export JSON backup</button>
+          <button class="btn" onclick="document.getElementById('imp').click()">Import a backup</button>
+          <input type="file" id="imp" accept="application/json" style="display:none" onchange="importData(this)">
+          <button class="btn" onclick="addStarterRoutes()">Add the starter routes</button>
+          <button class="btn danger" onclick="resetAll()">Reset to sample data</button>
+        </div>
+      </div></div>
+      <div class="panel"><header><h3>What's in here</h3></header><div class="body">
+        <table><tbody>
+          <tr><td>Scheduled departures</td><td class="num" style="text-align:right">${DB.events.length}</td></tr>
+          <tr><td>Research entries</td><td class="num" style="text-align:right">${DB.research.length}</td></tr>
+          <tr><td>Routes</td><td class="num" style="text-align:right">${DB.routes.length} (${DB.routes.reduce((s,r)=>s+r.stops.length,0)} stops)</td></tr>
+          <tr><td>Meeting notes</td><td class="num" style="text-align:right">${DB.notes.length}</td></tr>
+          <tr><td>Media items</td><td class="num" style="text-align:right">${DB.media.length}</td></tr>
+          <tr><td>Team profiles</td><td class="num" style="text-align:right">${DB.people.length}</td></tr>
+          <tr><td>Contacts</td><td class="num" style="text-align:right">${DB.contacts.length}</td></tr>
+        </tbody></table>
+      </div></div>
+    </div>`;
+}
+function tourFields(){
+  return [
+    {k:'name', label:'Tour name', type:'text'},
+    {k:'type', label:'Format', type:'text', placeholder:'Walking tour'},
+    {k:'duration', label:'Length of time', type:'text', placeholder:'2 hrs'},
+    {k:'distance', label:'Distance', type:'text', placeholder:'1 mile'},
+    {k:'capacity', label:'Default capacity', type:'number'},
+    {k:'meet', label:'Meeting point', type:'text'},
+    {k:'blurb', label:'Description', type:'textarea', rows:5}
+  ];
+}
+function newTour(){
+  openForm({title:'Add a tour', fields:tourFields(), values:{capacity:15},
+    onSave:d => { if(!d.name) return 'Name required.'; DB.tours.push({id:uid('t'), ...d}); save('Tour added'); render(); }});
+}
+function editTour(id){
+  const t = byId(DB.tours, id);
+  openForm({title:'Edit tour', fields:tourFields(), values:t,
+    onSave:d => { Object.assign(t, d); save('Updated'); render(); }});
+}
+function delTour(id){
+  confirmDelete('this tour', () => {
+    DB.tours = DB.tours.filter(t => t.id !== id);
+    DB.events = DB.events.filter(e => e.tourId !== id);
+    save('Tour and its departures removed'); render();
+  });
+}
+function exportData(){
+  const blob = new Blob([JSON.stringify(DB, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'black-austin-tours-backup-' + todayISO() + '.json';
+  a.click();
+  toast('Backup downloaded');
+}
+function importData(input){
+  const f = input.files[0]; if(!f) return;
+  const fr = new FileReader();
+  fr.onload = () => {
+    try{
+      const d = JSON.parse(fr.result);
+      if(!d.tours || !d.events) throw 0;
+      DB = d; ME = DB.people[0].id;
+      save('Backup loaded'); renderWho(); render();
+    }catch(e){ toast("That file isn't a backup from this app."); }
+  };
+  fr.readAsText(f);
+}
+function resetAll(){
+  confirmDelete('everything and start from sample data', () => {
+    DB = seed(); ME = DB.people[0].id; routeId = null;
+    save('Reset to sample data'); renderWho(); render();
+  });
+}
+
+
+/* ---------------- Google Sheets panel ---------------- */
+function sheetsPanel(){
+  if(!CFG.on){
+    return `<div class="panel"><header><h3>Google Sheets</h3></header><div class="body">
+      <p style="margin-top:0">Not connected. Everything is saving to ${esc(Store.label())}, which means each person has their own copy.</p>
+      <p class="meta">Connect a sheet and the whole team reads and writes the same data. Each part of the app gets its own tab, so you can also edit rows directly in the spreadsheet.</p>
+      <div style="margin-top:12px"><button class="btn gold" onclick="setupSheets()">Connect Google Sheets</button></div>
+    </div></div>`;
+  }
+  const when = SYNC.at ? new Date(SYNC.at).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}) : 'not yet';
+  return `<div class="panel"><header><h3>Google Sheets</h3><div class="right"><span class="status s-open">Connected</span></div></header><div class="body">
+    <table><tbody>
+      <tr><td>Last write</td><td style="text-align:right">${esc(when)}${SYNC.by?' by '+esc(SYNC.by):''}</td></tr>
+      <tr><td>Revision</td><td class="num" style="text-align:right">${REV}</td></tr>
+      <tr><td>Checking for changes</td><td style="text-align:right">every 25 seconds</td></tr>
+    </tbody></table>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn" onclick="cloudPull()">Pull latest</button>
+      <button class="btn" onclick="cloudPush()">Push now</button>
+      ${CFG.sheetUrl?`<a class="btn" href="${esc(CFG.sheetUrl)}" target="_blank" rel="noopener">Open the sheet</a>`:''}
+      <button class="btn" onclick="setupSheets()">Change settings</button>
+      <button class="btn danger" onclick="disconnectSheets()">Disconnect</button>
+    </div>
+    <p class="meta" style="margin-bottom:0;margin-top:12px">If two people save at the same moment, the second save is refused rather than overwriting the first \u2014 the app pulls the newer version and tells you to redo that one change.</p>
+  </div></div>`;
+}
+
+function setupSheets(){
+  const steps = `
+    <ol style="margin:0 0 18px;padding-left:20px;line-height:1.75">
+      <li>Make a new Google Sheet. Name it something like <b>Black Austin Tours \u2014 Operations</b>.</li>
+      <li>In that sheet: Extensions, then Apps Script. Delete whatever is in the editor.</li>
+      <li>Paste in the script below and save it.</li>
+      <li>Click Deploy, then New deployment. Choose <b>Web app</b>.<br>
+          Set <b>Execute as: Me</b> and <b>Who has access: Anyone with the link</b>, then Deploy and approve the permissions.</li>
+      <li>Copy the web app URL it gives you \u2014 it ends in <b>/exec</b> \u2014 and paste it below.</li>
+    </ol>
+    <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+      <button class="btn" onclick="downloadGS()">Download Code.gs</button>
+      <button class="btn" onclick="copyGS()">Copy the script</button>
+    </div>
+    <textarea id="gsview" readonly style="min-height:150px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px"></textarea>
+    <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">`;
+  openForm({
+    title:'Connect Google Sheets',
+    wide:true,
+    fields:[
+      {k:'endpoint', label:'Web app URL', type:'url', placeholder:'https://script.google.com/macros/s/.../exec'},
+      {k:'token', label:'Access word', type:'text', hint:'Only if you set SHARED_TOKEN in the script. Leave empty otherwise.'},
+      {k:'sheetUrl', label:'Link to the sheet itself', type:'url', hint:'Optional. Gives you an Open the sheet button.'}
+    ],
+    values:{endpoint:CFG.endpoint, token:CFG.token, sheetUrl:CFG.sheetUrl},
+    extra:'',
+    onSave:d => {
+      if(!d.endpoint || !/\/exec\s*$/.test(d.endpoint.trim()))
+        return 'Paste the deployment URL that ends in /exec.';
+      connectSheets(d.endpoint.trim(), d.token.trim(), d.sheetUrl.trim());
+      return 'skip';
+    }
+  });
+  // drop the instructions above the form fields
+  const body = document.querySelector('.modal .body');
+  body.insertAdjacentHTML('afterbegin', steps);
+  document.getElementById('gsview').value = document.getElementById('gscode').textContent.trim();
+  document.getElementById('formsave').textContent = 'Connect';
+}
+function gsText(){ return document.getElementById('gscode').textContent.trim(); }
+function downloadGS(){
+  const b = new Blob([gsText()], {type:'text/javascript'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b); a.download = 'Code.gs'; a.click();
+  toast('Code.gs downloaded');
+}
+function copyGS(){
+  const t = document.getElementById('gsview');
+  t.focus(); t.select();
+  let ok = false;
+  try{ ok = document.execCommand('copy'); }catch(e){}
+  if(!ok && navigator.clipboard) navigator.clipboard.writeText(gsText()).then(() => toast('Script copied')).catch(() => toast('Select the text and copy it'));
+  else toast(ok ? 'Script copied' : 'Select the text and copy it');
+}
+
+async function connectSheets(endpoint, token, sheetUrl){
+  setSync('syncing', 'Testing the connection\u2026');
+  let ping;
+  try{ ping = await Cloud.ping(endpoint, token); }
+  catch(e){ setSync('error', 'Could not connect'); return openModal('Could not connect', `<p>${esc(e.message)}</p>
+    <p class="meta">Two things catch people out: the deployment has to be set to <b>Anyone with the link</b>, and the URL has to be the one ending in <b>/exec</b>, not <b>/dev</b>. If you changed the script after deploying, publish a new version.</p>`,
+    `<button class="btn" data-close>Close</button><button class="btn primary" onclick="closeModal();setupSheets()">Try again</button>`); }
+
+  CFG = {endpoint, token, sheetUrl, on:true};
+  saveConfig();
+  REV = ping.rev || 0;
+
+  let server = null;
+  try{ const r = await Cloud.load(); server = r.data; REV = r.rev; SYNC.by = r.by; SYNC.at = r.updated; }catch(e){}
+  const hasServerData = server && server.tours && server.tours.length;
+
+  closeModal();
+  if(!hasServerData){
+    await cloudPush();
+    await cloudPull(true);
+    toast('Connected. This workspace is now in the sheet.');
+    render();
+    startPolling();
+    return;
+  }
+  openModal('There is already data in that sheet',
+    `<p>The sheet holds ${server.tours.length} tours, ${(server.events||[]).length} departures, and ${(server.research||[]).length} research entries. Which copy wins?</p>
+     <p class="meta">This one only comes up the first time you connect.</p>`,
+    `<button class="btn" id="useSheet">Use what is in the sheet</button>
+     <button class="btn primary" id="useLocal">Upload what is in this workspace</button>`);
+  document.getElementById('useSheet').onclick = async () => { closeModal(); await cloudPull(); startPolling(); };
+  document.getElementById('useLocal').onclick = async () => { closeModal(); await cloudPush(); render(); startPolling(); };
+}
+function disconnectSheets(){
+  confirmDelete('the connection to Google Sheets (the sheet itself stays put)', () => {
+    CFG = {endpoint:'', token:'', sheetUrl:'', on:false};
+    saveConfig(); clearInterval(pollTimer);
+    setSync('local', 'Saved to ' + Store.label());
+    toast('Disconnected. The sheet still has everything in it.');
+    render();
+  });
+}
+function addStarterRoutes(){
+  const have = new Set(DB.routes.map(r => r.name));
+  const add = starterRoutes().filter(r => !have.has(r.name));
+  if(!add.length) return toast('All four starter routes are already here.');
+  DB.routes.push(...add);
+  save(add.length + ' route' + (add.length>1?'s':'') + ' added'); render();
+}
+
+
+/* One-time top-up for workspaces created before the starter routes shipped. */
+function migrate(){
+  if(DB.meta.starterRoutes) return;
+  DB.routes = DB.routes.filter(r => !(r.name === 'East Austin Black History Walk \u2014 standard route' && r.stops.length === 3));
+  const have = new Set(DB.routes.map(r => r.name));
+  starterRoutes().forEach(r => { if(!have.has(r.name)) DB.routes.push(r); });
+  if(!DB.tours.some(t => t.id === 't_pp')){
+    DB.tours.push({id:'t_pp', name:'Pease Park & Shoal Creek Walk', type:'Walking tour', duration:'1.5 hrs',
+      distance:'1 mile', capacity:15, price:'', meet:'Kingsbury Commons',
+      blurb:'In development. Shoal Creek as a boundary, the 1865 encampment at Custer\u2019s Meadow, and the freedom colonies that grew up on either side of the park.'});
+  }
+  DB.meta.starterRoutes = true;
+  Store.set(KEY, DB);
+}
+
+/* ================= boot ================= */
+function renderWho(){
+  const sel = $('#whoami');
+  sel.innerHTML = DB.people.map(p => `<option value="${p.id}"${p.id===ME?' selected':''}>${esc(p.name)}</option>`).join('');
+  sel.onchange = () => { ME = sel.value; render(); };
+}
+(async function init(){
+  await loadConfig();
+  DB = await Store.get(KEY);
+  if(!DB || !DB.tours){ DB = seed(); await Store.set(KEY, DB); }
+  DB = normalize(DB);
+  migrate();
+  ME = DB.people[0].id;
+  setSync(CFG.on ? 'syncing' : 'local', CFG.on ? 'Connecting to the sheet\u2026' : 'Saved to ' + Store.label());
+  renderWho();
+  render();
+  if(CFG.on){ await cloudPull(true); startPolling(); }
+  document.addEventListener('keydown', e => { if(e.key === 'Escape') closeModal(); });
+  $('#modalroot').addEventListener('click', e => {
+    if(e.target.hasAttribute('data-scrim') || e.target.closest('[data-close]')) closeModal();
+  });
+})();
+
+</script>
+</body>
+</html>
