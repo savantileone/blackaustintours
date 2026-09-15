@@ -2,9 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Black Austin Tours — Operations</title>
 <meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1C1814">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="icons/favicon-16.png" sizes="16x16" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="B.A.T.">
+<meta name="mobile-web-app-capable" content="yes">
 <style>
   :root{ --ink:#1C1814; --ink-2:#2B241C; --paper:#EDE7DC; --gold:#B07D12; --gold-lt:#E8C877;
          --line:rgba(255,255,255,.14); --muted:#A79B86; --brick:#D98E7E;
@@ -43,11 +52,11 @@
       <label for="pw">Passphrase</label>
       <input type="password" id="pw" autocomplete="off" spellcheck="false" autofocus>
       <div class="remember"><input type="checkbox" id="remember" checked>
-        <label for="remember" style="margin:0">Stay unlocked in this tab</label></div>
+        <label for="remember" style="margin:0">Remember on this device</label></div>
       <button type="submit" id="go">Unlock</button>
       <div class="msg" id="msg"></div>
     </form>
-    <div class="foot">If you don't have the passphrase, ask whoever manages this workspace.</div>
+    <div class="foot">If you don't have the passphrase, ask whoever manages this workspace.<br>Shared device? Use <b>Lock this device</b> inside Workspace before handing it off.</div>
   </div>
 </div>
 <iframe id="app" title="Black Austin Tours operations app"
@@ -56,7 +65,12 @@
 <script>
 (function(){
   var PAYLOAD_URL = 'app.encrypted';
-  var SESSION_KEY = 'bat_lock_key_v1';
+  var STORE_KEY = 'bat_lock_key_v1';
+  // Remembering "between app opens" (not just this tab) means the key has to
+  // live in localStorage rather than sessionStorage. That is a deliberate
+  // trade of convenience for security, made at the user's request — anyone
+  // who can unlock this device's browser storage can open the app without
+  // the passphrase. The "Lock this device" control inside Workspace clears it.
   var subtle = window.crypto.subtle;
   var msg = document.getElementById('msg');
   var pw = document.getElementById('pw');
@@ -122,7 +136,7 @@
   }
 
   async function tryStoredKey(){
-    var stored = sessionStorage.getItem(SESSION_KEY);
+    var stored = localStorage.getItem(STORE_KEY);
     if(!stored) return false;
     var payload;
     try{
@@ -135,7 +149,7 @@
       showApp(html);
       return true;
     }catch(e){
-      sessionStorage.removeItem(SESSION_KEY);
+      localStorage.removeItem(STORE_KEY);
       return false;
     }
   }
@@ -151,7 +165,7 @@
       var html = await decryptWithKey(key, payload.iv, payload.data);
       if(remember.checked){
         var raw = await subtle.exportKey('raw', key);
-        sessionStorage.setItem(SESSION_KEY, bytesToB64(new Uint8Array(raw)));
+        localStorage.setItem(STORE_KEY, bytesToB64(new Uint8Array(raw)));
       }
       msg.className = 'msg ok'; msg.textContent = 'Unlocked.';
       showApp(html);
@@ -168,6 +182,17 @@
       pw.focus();
     }
   });
+
+  window.addEventListener('message', function(e){
+    if(e.data === 'bat-lock'){
+      localStorage.removeItem(STORE_KEY);
+      location.reload();
+    }
+  });
+
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').catch(function(){ /* offline caching is a nicety, not a requirement */ });
+  }
 
   tryStoredKey();
 })();
